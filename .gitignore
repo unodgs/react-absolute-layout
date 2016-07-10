@@ -1,0 +1,9 @@
+logs
+*.log
+temp
+node_modules
+.idea
+nbproject
+build
+dist
+/nbproject/private/

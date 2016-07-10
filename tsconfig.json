@@ -1,0 +1,25 @@
+{
+    "compilerOptions": {
+        "jsx": "react",
+        "module": "system",
+        "target": "es5",
+        "experimentalDecorators": true,
+        "noImplicitReturns": true,
+        "outFile": "./build/app.js",
+        "sourceMap": true
+    },
+    "filesGlob": [
+        "./src/main.tsx"
+    ],
+    "exclude": [
+        "node_modules",
+        "logs",
+        "build",
+        "dist",
+        "temp",
+        ".idea"
+    ],
+    "atom": {
+        "rewriteTsconfig": false
+    }
+}
