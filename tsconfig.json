@@ -2,13 +2,16 @@
     "compilerOptions": {
         "jsx": "react",
         "module": "system",
-        "target": "es5",
+        "moduleResolution": "node",
+        "declaration": false,
+        "target": "es6",
         "experimentalDecorators": true,
         "noImplicitReturns": true,
-        "outFile": "./build/app.js",
-        "sourceMap": true
+        "outDir": "./build",
+        "sourceMap": true,
+        "allowJs": false
     },
-    "filesGlob": [
+    "files": [
         "./src/main.tsx"
     ],
     "exclude": [

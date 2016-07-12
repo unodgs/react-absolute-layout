@@ -5,23 +5,17 @@
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0"/>
         <title>React layout component</title>
         <link href="./app.css" rel="stylesheet">
-        <link rel="icon" href="/favicon.ico"/>
+        <!--<link rel="icon" href="/favicon.ico"/>-->
     </head>
     <body>
-        <div id="app">DUPA</div>
-        <script src="./build/system.js"></script>
-        <!--<script src="./build/app.js"></script>-->
+        <div id="app"></div>
+        <script src="jspm_packages/system.js"></script>
+        <script src="config.js"></script>
         <script>
             console.log("importing");
-            SystemJS.config({
-                packages: {
-                    defaultExtension: 'js'
-                }
-            });
-            SystemJS.import('./build/app.js').then(() => {
-                console.log("loaded")
-            }).catch(err => console.log(err));
+            System
+                .import('./build/main.js')
+                .catch(err => console.log(err));
         </script>
-        <!--<script src="./build/app.js"></script>-->
     </body>
 </html>

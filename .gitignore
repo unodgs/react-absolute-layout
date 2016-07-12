@@ -2,6 +2,7 @@ logs
 *.log
 temp
 node_modules
+jspm_packages
 .idea
 nbproject
 build
