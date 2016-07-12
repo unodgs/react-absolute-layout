@@ -11,8 +11,9 @@
         "sourceMap": true,
         "allowJs": false
     },
-    "files": [
-        "./src/main.tsx"
+    "include": [
+        "./src/**/*",
+        "./typings/**/*"
     ],
     "exclude": [
         "node_modules",

@@ -12,7 +12,10 @@
         <script src="jspm_packages/system.js"></script>
         <script src="config.js"></script>
         <script>
-            console.log("importing");
+            System.config({
+                defaultJSExtensions: true
+            });
+
             System
                 .import('./build/main.js')
                 .catch(err => console.log(err));
