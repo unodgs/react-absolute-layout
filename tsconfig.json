@@ -9,7 +9,8 @@
         "noImplicitReturns": true,
         "outDir": "./build",
         "sourceMap": true,
-        "allowJs": false
+        "allowJs": false,
+        "pretty": true
     },
     "include": [
         "./src/**/*",
