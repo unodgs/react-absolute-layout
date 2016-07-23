@@ -27,6 +27,10 @@ interface AbsoluteLayoutState {
 	totalHeight?: number;
 	colWidth?: number;
 	rowHeight?: number;
+	snapPoints?: {
+		horizontal: number[],
+		vertical: number[]
+	}
 }
 
 interface GridCell {
@@ -44,14 +48,14 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
 
 	constructor(props: AbsoluteLayoutProps) {
 		super(props);
+		const colWidth = 40;
+		const rowHeight = 40;
+		const grid = this.getInitialGrid(this.props.children, colWidth, rowHeight);
+		const snapPoints = this.getSnapPoints(grid, -1);
+
 		this.state = {
-			grid: this.props.children.map((el, idx: number) => ({
-				x: idx * 50,
-				y: 0,
-				w: 100,
-				h: 50,
-				element: el
-			} as GridCell)),
+			grid: grid,
+			snapPoints: snapPoints,
 			dragging: false,
 			mouseStartPos: null,
 			mouseCurrPos: null,
@@ -61,6 +65,33 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
 			totalHeight: 0,
 			colWidth: 40,
 			rowHeight: 40
+		}
+	}
+
+	getInitialGrid(children: React.ReactChild[], colWidth: number, rowHeight: number) {
+		return children.map((el, idx: number) => ({
+			x: colWidth,
+			y: rowHeight + (idx * rowHeight * 2),
+			w: colWidth * 5,
+			h: rowHeight * 2,
+			element: el
+		} as GridCell))
+	}
+
+	getSnapPoints(grid: GridLayout, selectedIdx: number) {
+		const xs = [];
+		const ys = [];
+
+		for (let i = 0; i < grid.length; i++) {
+			if (i !== selectedIdx) {
+				const g = grid[i];
+				xs.push(g.x, g.x + g.w);
+				ys.push(g.y, g.y + g.h);
+			}
+		}
+		return {
+			horizontal: ys,
+			vertical: xs
 		}
 	}
 
@@ -100,7 +131,8 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
 			elementPos: {
 				x: x,
 				y: y
-			}
+			},
+			snapPoints: this.getSnapPoints(this.state.grid, idx)
 		});
 	}
 
@@ -118,28 +150,40 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
 		if (this.state.dragging) {
 			const idx = this.state.elementIdx;
 			const grid = this.state.grid;
+			const gi = grid[idx];
 
-			const xs = [];
-			const ys = [];
+			const snapPoints = this.getSnapPoints(grid, idx);
 
-			for (let i = 0; i < this.state.grid.length; i++) {
-				if (i !== idx) {
-					const g = this.state.grid[i];
-					xs.push(g.x, g.x + g.w);
-					ys.push(g.y, g.y + g.h);
+			const gx = this.state.elementPos.x + e.clientX - this.state.mouseStartPos.x;
+			const gy = this.state.elementPos.y + e.clientY - this.state.mouseStartPos.y;  
+
+			let x0 = snapToGrid(gx, snapPoints.vertical, this.state.colWidth);
+			let fx = x0.pos;
+
+			if (!x0.snapped) {
+				let x1 = snapToGrid(gx + gi.w, snapPoints.vertical, this.state.colWidth);
+				if (x1.snapped) {
+					fx = fx + (x1.pos - gx - gi.w); 
 				}
 			}
 
-			grid[idx].x = snapToGrid(
-				this.state.elementPos.x + e.clientX - this.state.mouseStartPos.x,
-				xs, this.state.colWidth);
-			grid[idx].y = snapToGrid(
-				this.state.elementPos.y + e.clientY - this.state.mouseStartPos.y,
-				ys, this.state.rowHeight);
+			const y0 = snapToGrid(gy, snapPoints.horizontal, this.state.rowHeight);
+			let fy = y0.pos;
+
+			if (!y0.snapped) {
+				let y1 = snapToGrid(gy + gi.h, snapPoints.horizontal, this.state.rowHeight);
+				if (y1.snapped) {
+					fy = fy + (y1.pos - gy - gi.h); 
+				}
+			}
+
+			gi.x = fx;
+			gi.y = fy;
 
 			this.setState({
 				mouseCurrPos: { x: e.clientX, y: e.clientY },
-				grid: grid
+				grid: grid,
+				snapPoints: snapPoints
 			});
 		}
 	}
@@ -155,21 +199,15 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
 	
 	render() {
 		const cols = Math.floor(this.state.totalWidth / this.state.colWidth);
-		const rows = Math.floor(this.state.totalHeight / this.state.rowHeight)
+		const rows = Math.floor(this.state.totalHeight / this.state.rowHeight);
+		
+		const grid = this.state.grid;
+		const elementIdx = this.state.elementIdx;
 
 		let colLines = [];
 		for (let c = 1; c <= cols; c++) {
 			colLines.push(
 				<VertLine key={`column-line/${c}`} pos={c * this.state.colWidth} color='#eeeeee'/>
-			);
-		}
-		for (let i = 0; i < this.state.grid.length; i++) {
-			const g = this.state.grid[i];
-			colLines.push(
-				<VertLine key={`column-el-line-0/${i}`} pos={g.x} color="rgba(255, 0, 0, 0.17)"/>
-			);
-			colLines.push(
-				<VertLine key={`column-el-line-1/${i}`} pos={g.x + g.w} color="rgba(255, 0, 0, 0.17)"/>
 			);
 		}
 
@@ -180,43 +218,103 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
 			);
 		}
 
-		for (let i = 0; i < this.state.grid.length; i++) {
-			const g = this.state.grid[i];
-			rowLines.push(
-				<HorzLine key={`row-el-line-0/${i}`} pos={g.y} color="rgba(255, 0, 0, 0.17)"/>
-			);
-			rowLines.push(
-				<HorzLine key={`row-el-line-1/${i}`} pos={g.y + g.h} color="rgba(255, 0, 0, 0.17)"/>
-			);
+		if (this.state.dragging) {
+			const g = grid[elementIdx];
+			const snapPoints = this.state.snapPoints;
+
+			const fx0 = snapToGrid(g.x, snapPoints.vertical, this.state.colWidth);
+			const fx1 = snapToGrid(g.x + g.w, snapPoints.vertical, this.state.colWidth);
+			const fy0 = snapToGrid(g.y, snapPoints.horizontal, this.state.rowHeight);
+			const fy1 = snapToGrid(g.y + g.h, snapPoints.horizontal, this.state.rowHeight);
+			
+			if (fx0.snapPoint >= 0) {
+				colLines.push(
+					<VertLine
+						key={`column-snap-vert-line-0`}
+						pos={fx0.pos}
+						color="rgba(255, 0, 0, 0.17)"/>
+				);
+			}
+
+			if (fx1.snapPoint >= 0) {
+				colLines.push(
+					<VertLine
+						key={`column-snap-vert-line-1`}
+						pos={fx1.pos}
+						color="rgba(255, 0, 0, 0.17)"/>
+				);
+			}
+
+			if (fy0.snapPoint >= 0) {
+				rowLines.push(
+					<HorzLine
+						key={`column-snap-horz-line-0`}
+						pos={fy0.pos}
+						color="rgba(255, 0, 0, 0.17)"/>
+				);
+			}
+
+			if (fy1.snapPoint >= 0) {
+				rowLines.push(
+					<HorzLine
+						key={`column-snap-horz-line-1`}
+						pos={fy1.pos}
+						color="rgba(255, 0, 0, 0.17)"/>
+				);
+			}
 		}
 
-		return <div ref="grid" style={{width: '100%', height: this.props.height, border: '1px solid black', position: 'relative'}}>
+		// for (let i = 0; i < grid.length; i++) {
+		// 	const g = grid[i];
+		// 	colLines.push(
+		// 		<VertLine key={`column-el-line-0/${i}`} pos={g.x} color="rgba(255, 0, 0, 0.17)"/>
+		// 	);
+		// 	colLines.push(
+		// 		<VertLine key={`column-el-line-1/${i}`} pos={g.x + g.w} color="rgba(255, 0, 0, 0.17)"/>
+		// 	);
+		// }
+
+		// for (let i = 0; i < grid.length; i++) {
+		// 	const g = grid[i];
+		// 	rowLines.push(
+		// 		<HorzLine key={`row-el-line-0/${i}`} pos={g.y} color="rgba(255, 0, 0, 0.17)"/>
+		// 	);
+		// 	rowLines.push(
+		// 		<HorzLine key={`row-el-line-1/${i}`} pos={g.y + g.h} color="rgba(255, 0, 0, 0.17)"/>
+		// 	);
+		// }
+
+		return <div ref="grid" style={{width: '100%', height: this.props.height, border: '1px solid black', position: 'relative', boxSizing: 'border-box'}}>
 			{colLines}
 			{rowLines}
 			{this.state.grid.map((cell, idx: number) => {
+
+				const posStyle = {
+					left: `${cell.x}px`,
+					top: `${cell.y}px`,
+					width: cell.w,
+					height: cell.h,
+					position: 'absolute'
+				};
+
 				const props = {
 					key: `cell/${idx}`,
-					style: {
-						left: `${cell.x}px`,
-						top: `${cell.y}px`,
-						width: 100,
-						height: 50,
-						position: 'absolute',
-						border: idx === this.state.elementIdx ? '1px solid black' : 'none',
+					style: merge(posStyle, {
+						boxSizing: 'border-box',
+						zIndex: idx === elementIdx ? 10000 : 'auto',
+						border: idx === elementIdx ? '1px solid black' : 'none',
 						backgroundColor: cell.element.props.style.backgroundColor
-					},
+					}),
 					onMouseDown: (e: MouseEvent) => {
 						const t = e.target as any;
-						// console.log(e.clientX, e.clientY, e.pageX, e.pageY, t.left, t.top, t.style, t);
-						// console.log(t);
 						this.selectElement(idx, t.offsetLeft, t.offsetTop);
 					},
 				}
 
 				const el = React.cloneElement(cell.element as React.ReactElement<any>, props);
-				return idx === this.state.elementIdx ?
+				return idx === elementIdx ?
 					<div key={`cellSel/${idx}`}>
-						{el}
+						{el} 
 					</div>
 					: el;
 			})}
@@ -224,10 +322,14 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
 	}
 }
 
-// class GridItem 
-// dodac przyciaganie przeciwnej strony prostokata
-function snapToGrid(pos: number, snapPoints: number[], cellSize: number) {
-	let minDist = 3;
+type SnapPoint = {
+	pos: number,
+	snapped: boolean,
+	snapPoint: number
+}
+
+function snapToGrid(pos: number, snapPoints: number[], cellSize: number): SnapPoint {
+	const minDist = 3;
 	let closestSnapPoint = -1;
 	
 	for (const sp of snapPoints) {
@@ -238,9 +340,25 @@ function snapToGrid(pos: number, snapPoints: number[], cellSize: number) {
 		}
 	}
 
-	const cellPos = Math.round(pos / cellSize) * cellSize;
+	let outPos = { pos: pos, snapPoint: -1, snapped: false };
 
-	return closestSnapPoint >= 0
-		? Math.round(pos / closestSnapPoint) * closestSnapPoint
-		: (Math.abs(pos - cellPos) <= minDist ? cellPos: pos);
+	if (closestSnapPoint >= 0) {
+		outPos.pos = Math.round(pos / closestSnapPoint) * closestSnapPoint;
+		outPos.snapPoint = closestSnapPoint;
+		outPos.snapped = true;
+	} else {
+		const cellPos = Math.round(pos / cellSize) * cellSize;
+		if (Math.abs(pos - cellPos) <= minDist) {
+			outPos.pos = cellPos;
+			outPos.snapped = true;
+		}
+	}
+
+	return outPos;
+}
+
+function merge(obj0, obj1) {
+	const m = {};
+	Object.assign(m, obj0, obj1);
+	return m;
 }
