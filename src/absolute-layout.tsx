@@ -8,6 +8,11 @@ type Point = {
 	y: number;
 }
 
+type Size = {
+	w: number;
+	h: number;
+}
+
 interface AbsoluteLayoutProps extends React.Props<AbsoluteLayoutProps> {
 	children?: Array<React.ReactChild>;
 	columns: number;
@@ -18,9 +23,11 @@ interface AbsoluteLayoutProps extends React.Props<AbsoluteLayoutProps> {
 
 interface AbsoluteLayoutState {
 	dragging?: boolean;
+	resizing?: boolean;
 	mouseStartPos?: Point;
 	mouseCurrPos?: Point;
 	elementPos?: Point;
+	elementSize?: Size;
 	elementIdx?: number;
 	grid?: GridLayout;
 	totalWidth?: number;
@@ -60,6 +67,7 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
 			mouseStartPos: null,
 			mouseCurrPos: null,
 			elementPos: null,
+			elementSize: null,
 			elementIdx: -1,
 			totalWidth: 0,
 			totalHeight: 0,
@@ -124,7 +132,7 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
 		window.removeEventListener('resize', this.resize);		
 	}
 
-	selectElement = (idx: number, x: number, y: number) => {
+	selectElement = (idx: number, x: number, y: number, w: number, h: number) => {
 		console.log("Selected element " + idx);
 		this.setState({
 			elementIdx: idx,
@@ -132,16 +140,19 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
 				x: x,
 				y: y
 			},
+			elementSize: {
+				w: w,
+				h: h
+			},
 			snapPoints: this.getSnapPoints(this.state.grid, idx)
 		});
 	}
 
 	onMouseDown = (e: MouseEvent) => {
-		if (this.state.elementIdx >= 0) {			
+		if (this.state.elementIdx >= 0) {
 			this.setState({
 				mouseStartPos: { x: e.clientX, y: e.clientY },
 				mouseCurrPos: { x: e.clientX, y: e.clientY },
-				dragging: true
 			});
 		}
 	}
@@ -186,6 +197,29 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
 				snapPoints: snapPoints
 			});
 		}
+
+		if (this.state.resizing) {
+			const idx = this.state.elementIdx;
+			const grid = this.state.grid;
+			const gi = grid[idx];
+
+			const snapPoints = this.getSnapPoints(grid, idx);
+
+			const gx = this.state.elementPos.x + this.state.elementSize.w + e.clientX - this.state.mouseStartPos.x;
+			const gy = this.state.elementPos.y + this.state.elementSize.h + e.clientY - this.state.mouseStartPos.y;  
+
+			const fx = snapToGrid(gx, snapPoints.vertical, this.state.colWidth);
+			const fy = snapToGrid(gy, snapPoints.horizontal, this.state.rowHeight);
+
+			gi.w = fx.pos - gi.x;
+			gi.h = fy.pos - gi.y;
+
+			this.setState({
+				mouseCurrPos: { x: e.clientX, y: e.clientY },
+				grid: grid,
+				snapPoints: snapPoints
+			});
+		}
 	}
 
 	onMouseUp = (e: MouseEvent) => {
@@ -193,10 +227,23 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
 			mouseStartPos: null,
 			mouseCurrPos: null,
 			elementPos: null,
+			elementSize: null,
 			dragging: false,
+			resizing: false
 		});
 	}
-	
+
+	startResizing = (e: MouseEvent) => {
+		console.log(e);
+		if (this.state.elementIdx >= 0) {
+			this.setState({
+				mouseStartPos: { x: e.clientX, y: e.clientY },
+				mouseCurrPos: { x: e.clientX, y: e.clientY },
+				resizing: true			
+			});
+		}
+	}
+
 	render() {
 		const cols = Math.floor(this.state.totalWidth / this.state.colWidth);
 		const rows = Math.floor(this.state.totalHeight / this.state.rowHeight);
@@ -218,7 +265,7 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
 			);
 		}
 
-		if (this.state.dragging) {
+		if (this.state.dragging || this.state.resizing) {
 			const g = grid[elementIdx];
 			const snapPoints = this.state.snapPoints;
 
@@ -264,57 +311,61 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
 			}
 		}
 
-		// for (let i = 0; i < grid.length; i++) {
-		// 	const g = grid[i];
-		// 	colLines.push(
-		// 		<VertLine key={`column-el-line-0/${i}`} pos={g.x} color="rgba(255, 0, 0, 0.17)"/>
-		// 	);
-		// 	colLines.push(
-		// 		<VertLine key={`column-el-line-1/${i}`} pos={g.x + g.w} color="rgba(255, 0, 0, 0.17)"/>
-		// 	);
-		// }
-
-		// for (let i = 0; i < grid.length; i++) {
-		// 	const g = grid[i];
-		// 	rowLines.push(
-		// 		<HorzLine key={`row-el-line-0/${i}`} pos={g.y} color="rgba(255, 0, 0, 0.17)"/>
-		// 	);
-		// 	rowLines.push(
-		// 		<HorzLine key={`row-el-line-1/${i}`} pos={g.y + g.h} color="rgba(255, 0, 0, 0.17)"/>
-		// 	);
-		// }
-
 		return <div ref="grid" style={{width: '100%', height: this.props.height, border: '1px solid black', position: 'relative', boxSizing: 'border-box'}}>
 			{colLines}
 			{rowLines}
 			{this.state.grid.map((cell, idx: number) => {
-
 				const posStyle = {
 					left: `${cell.x}px`,
 					top: `${cell.y}px`,
 					width: cell.w,
 					height: cell.h,
-					position: 'absolute'
+					position: 'absolute',
+					zIndex: idx === elementIdx ? 10000 : 'auto',
 				};
+
+				let style = merge(cell.element.props.style, {
+					boxSizing: 'border-box',
+					border: idx === elementIdx ? '2px dashed black' : 'none'
+				});
+
+				if (idx === elementIdx) {
+					style = merge(style, {
+						width: '100%',
+						height: '100%'						
+					});
+				} else {
+					style = merge(style, posStyle);
+				}
 
 				const props = {
 					key: `cell/${idx}`,
-					style: merge(posStyle, {
-						boxSizing: 'border-box',
-						zIndex: idx === elementIdx ? 10000 : 'auto',
-						border: idx === elementIdx ? '1px solid black' : 'none',
-						backgroundColor: cell.element.props.style.backgroundColor
-					}),
+					style: style,
 					onMouseDown: (e: MouseEvent) => {
-						const t = e.target as any;
-						this.selectElement(idx, t.offsetLeft, t.offsetTop);
-					},
+						let t = e.target as any;
+						if (this.state.elementIdx === idx) {
+							t = t.parentNode;
+						}
+
+						const mx = e.clientX - t.offsetLeft;
+						const my = e.clientY - t.offsetTop;
+
+						const resizing = mx > t.offsetWidth - 20 && my > t.offsetHeight - 20;
+
+						this.selectElement(idx, t.offsetLeft, t.offsetTop, t.offsetWidth, t.offsetHeight);
+						this.setState({
+							dragging: !resizing,
+							resizing: resizing
+						});
+					}
 				}
+						// <span style={resizeHandle}
+						// 	onMouseDown={this.startResizing}/>
 
 				const el = React.cloneElement(cell.element as React.ReactElement<any>, props);
 				return idx === elementIdx ?
-					<div key={`cellSel/${idx}`}>
-						{el} 
+					<div key={`cellSel/${idx}`} style={posStyle}>
+						{el}
 					</div>
 					: el;
 			})}
@@ -357,8 +408,23 @@ function snapToGrid(pos: number, snapPoints: number[], cellSize: number): SnapPo
 	return outPos;
 }
 
-function merge(obj0, obj1) {
+function merge(...objs) {
 	const m = {};
-	Object.assign(m, obj0, obj1);
+	Object.assign.apply(this, [m].concat(objs));
 	return m;
+}
+
+const resizeHandle = {
+    position: 'absolute',
+    width: 20,
+    height: 20,
+    bottom: 0,
+    right: 0,
+    background: "url('data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBzdGFuZGFsb25lPSJubyI/Pg08IS0tIEdlbmVyYXRvcjogQWRvYmUgRmlyZXdvcmtzIENTNiwgRXhwb3J0IFNWRyBFeHRlbnNpb24gYnkgQWFyb24gQmVhbGwgKGh0dHA6Ly9maXJld29ya3MuYWJlYWxsLmNvbSkgLiBWZXJzaW9uOiAwLjYuMSAgLS0+DTwhRE9DVFlQRSBzdmcgUFVCTElDICItLy9XM0MvL0RURCBTVkcgMS4xLy9FTiIgImh0dHA6Ly93d3cudzMub3JnL0dyYXBoaWNzL1NWRy8xLjEvRFREL3N2ZzExLmR0ZCI+DTxzdmcgaWQ9IlVudGl0bGVkLVBhZ2UlMjAxIiB2aWV3Qm94PSIwIDAgNiA2IiBzdHlsZT0iYmFja2dyb3VuZC1jb2xvcjojZmZmZmZmMDAiIHZlcnNpb249IjEuMSINCXhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgeG1sbnM6eGxpbms9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkveGxpbmsiIHhtbDpzcGFjZT0icHJlc2VydmUiDQl4PSIwcHgiIHk9IjBweCIgd2lkdGg9IjZweCIgaGVpZ2h0PSI2cHgiDT4NCTxnIG9wYWNpdHk9IjAuMzAyIj4NCQk8cGF0aCBkPSJNIDYgNiBMIDAgNiBMIDAgNC4yIEwgNCA0LjIgTCA0LjIgNC4yIEwgNC4yIDAgTCA2IDAgTCA2IDYgTCA2IDYgWiIgZmlsbD0iIzAwMDAwMCIvPg0JPC9nPg08L3N2Zz4=')",
+    backgroundPosition: "bottom right",
+    padding: "0 3px 3px 0",
+    backgroundRepeat: "no-repeat",
+    backgroundOrigin: "content-box",
+    boxSizing: "border-box",
+    cursor: "se-resize"
 }
