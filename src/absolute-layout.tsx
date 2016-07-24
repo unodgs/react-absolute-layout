@@ -234,7 +234,6 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
 	}
 
 	startResizing = (e: MouseEvent) => {
-		console.log(e);
 		if (this.state.elementIdx >= 0) {
 			this.setState({
 				mouseStartPos: { x: e.clientX, y: e.clientY },
@@ -250,6 +249,7 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
 		
 		const grid = this.state.grid;
 		const elementIdx = this.state.elementIdx;
+		const g = elementIdx >= 0 ? grid[elementIdx] : null;
 
 		let colLines = [];
 		for (let c = 1; c <= cols; c++) {
@@ -326,7 +326,8 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
 
 				let style = merge(cell.element.props.style, {
 					boxSizing: 'border-box',
-					border: idx === elementIdx ? '2px dashed black' : 'none'
+					// border: idx === elementIdx ? '2px dashed black' : 'none',
+					opacity: this.state.dragging ? 0.8 : 1
 				});
 
 				if (idx === elementIdx) {
@@ -342,13 +343,13 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
 					key: `cell/${idx}`,
 					style: style,
 					onMouseDown: (e: MouseEvent) => {
-						let t = e.target as any;
+						let t = e.target as HTMLElement;
 						if (this.state.elementIdx === idx) {
-							t = t.parentNode;
+							t = t.parentNode as HTMLElement;
 						}
-
-						const mx = e.clientX - t.offsetLeft;
-						const my = e.clientY - t.offsetTop;
+						
+						const mx = e.clientX - t.offsetLeft + document.documentElement.scrollLeft;
+						const my = e.clientY - t.offsetTop + document.documentElement.scrollTop;
 
 						const resizing = mx > t.offsetWidth - 20 && my > t.offsetHeight - 20;
 
@@ -369,6 +370,11 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
 					</div>
 					: el;
 			})}
+			{g && <HorzLine pos={g.y + g.h / 2} label={`${g.x}`} from={0} to={g.x} color="green"/>}
+			{g && <HorzLine pos={g.y + g.h / 2} label={`${this.state.totalWidth - g.x - g.w}`} from={g.x + g.w} to={this.state.totalWidth} color="green"/>}
+			{g && <VertLine pos={g.x + g.w / 2} label={`${g.y}`} from={0} to={g.y} color="green"/>}
+			{g && <VertLine pos={g.x + g.w / 2} label={`${this.state.totalHeight - g.y - g.h}`} from={g.y + g.h} to={this.state.totalHeight} color="green"/>}
+
 		</div>
 	}
 }
