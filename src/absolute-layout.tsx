@@ -19,6 +19,7 @@ interface AbsoluteLayoutProps extends React.Props<AbsoluteLayoutProps> {
 	rows: number;
 	width: number;
 	height: number;
+	initialLayout?: string;
 }
 
 interface AbsoluteLayoutState {
@@ -57,9 +58,10 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
 		super(props);
 		const colWidth = 40;
 		const rowHeight = 40;
-		const grid = this.getInitialGrid(this.props.children, colWidth, rowHeight);
+		const grid = this.props.initialLayout
+			? this.updateLayoutChildren(strToLayout(this.props.initialLayout), props.children)
+			: this.getInitialGrid(props.children, colWidth, rowHeight);
 		const snapPoints = this.getSnapPoints(grid, -1);
-
 		this.state = {
 			grid: grid,
 			snapPoints: snapPoints,
@@ -74,6 +76,19 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
 			colWidth: 40,
 			rowHeight: 40
 		}
+	}
+	
+	updateLayoutChildren(grid: GridLayout, children: React.ReactChild[]): GridLayout {
+		for (let i = 0; i < children.length; i++) {
+			if (i < grid.length) {
+				grid[i].element = children[i];
+			} else {
+				const cell = getInitialGridCell();
+				cell.element = children[i];
+				grid.push(cell);
+			}
+		}
+		return grid;
 	}
 
 	getInitialGrid(children: React.ReactChild[], colWidth: number, rowHeight: number) {
@@ -310,8 +325,21 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
 				);
 			}
 		}
+		let info = `GRID: [${this.state.totalWidth}, ${this.state.totalHeight}]`;
+		if (elementIdx >= 0) {
+			const elementKey = (g.element as React.ReactElement<any>).key || 'NO-KEY';
+			const elementSize = `[${g.x}, ${g.y}, ${g.w}, ${g.h}]`;
+			info += ` | BOX ${elementIdx} (${elementKey}): ${elementSize}`;
+		}
 
-		return <div ref="grid" style={{width: '100%', height: this.props.height, border: '1px solid black', position: 'relative', boxSizing: 'border-box'}}>
+		return <div ref="grid" style={{
+				width: this.props.width,
+				height: this.props.height,
+				border: '1px solid black',
+				position: 'relative',
+				boxSizing: 'border-box',
+				overflow: 'hidden'
+			}}>
 			{colLines}
 			{rowLines}
 			{this.state.grid.map((cell, idx: number) => {
@@ -370,11 +398,40 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
 					</div>
 					: el;
 			})}
-			{g && <HorzLine pos={g.y + g.h / 2} label={`${g.x}`} from={0} to={g.x} color="green"/>}
-			{g && <HorzLine pos={g.y + g.h / 2} label={`${this.state.totalWidth - g.x - g.w}`} from={g.x + g.w} to={this.state.totalWidth} color="green"/>}
-			{g && <VertLine pos={g.x + g.w / 2} label={`${g.y}`} from={0} to={g.y} color="green"/>}
-			{g && <VertLine pos={g.x + g.w / 2} label={`${this.state.totalHeight - g.y - g.h}`} from={g.y + g.h} to={this.state.totalHeight} color="green"/>}
-
+			{g && <HorzLine pos={g.y + g.h / 2} label={`${g.x}`} from={0} to={g.x} color="black" onTop={true}/>}
+			{g && <HorzLine pos={g.y + g.h / 2} label={`${this.state.totalWidth - g.x - g.w}`} from={g.x + g.w} to={this.state.totalWidth} color="black" onTop={true}/>}
+			{g && <VertLine pos={g.x + g.w / 2} label={`${g.y}`} from={0} to={g.y} color="black" onTop={true}/>}
+			{g && <VertLine pos={g.x + g.w / 2} label={`${this.state.totalHeight - g.y - g.h}`} from={g.y + g.h} to={this.state.totalHeight} color="black" onTop={true}/>}
+			<div style={{
+				backgroundColor: 'rgba(255, 0, 0, 0.5)',
+				top: 0,
+				height: 30,
+				width: '100%',
+				position: 'absolute',
+				zIndex: 10001
+				}}>
+				<button style={{
+					border: '1px solid black',
+					backgroundColor: 'rgba(255, 0, 0, 0.4)',
+					color: 'white',
+					height: 'calc(100% - 10px)',
+					position: 'absolute',
+					right: 0,
+					width: 80,
+					margin: 5,
+					fontSize: 10
+				}}>Copy layout</button>
+				<span style={{
+					position: 'absolute',
+					fontSize: 12,
+					top: 8,
+					left: 5,
+					fontFamily: 'monospace',
+					color: 'black'
+				}}>
+				{info}
+				</span>
+			</div>
 		</div>
 	}
 }
@@ -418,6 +475,98 @@ function merge(...objs) {
 	const m = {};
 	Object.assign.apply(this, [m].concat(objs));
 	return m;
+}
+
+function layoutToStr(layout: GridLayout): string {
+	function posToStr(p: number, attached: boolean, percentage: boolean): string {
+		let s = `${p}`;
+		if (attached && !percentage) s += 'A';
+		if (!attached && percentage) s += 'P';
+		if (attached && percentage)  s += 'D';
+		if (!attached && !percentage) s += "|";
+		return s;
+	}
+	let s = '';
+	layout.forEach((g: GridCell, idx: number) => {
+		s += 
+			posToStr(g.x, g.xa, g.xp) +
+			posToStr(g.y, g.ya, g.yp) +
+			posToStr(g.w, g.wa, g.wp) +
+			posToStr(g.h, g.ha, g.hp) +
+			(idx < layout.length - 1 ? ";" : "");
+	});
+	return s;
+}
+
+function getInitialGridCell(): GridCell {
+	return {
+		x: 0, xa: false, xp: false,
+		y: 0, ya: false, yp: false,
+		w: 0, wa: false, wp: false,
+		h: 0, ha: false, hp: false,
+		element: null
+	}
+}
+
+function strToLayout(s: string): GridLayout {
+	let num = '';
+	let numIdx = 0;
+	let attached = false;
+	let percentage = false;
+	let numEnd = false;
+	let blockEnd = false;
+
+	const grid: GridLayout = [];
+	let cell: GridCell = getInitialGridCell();
+
+	for (let i = 0; i < s.length; i++) {
+		if (s[i] >= '0' && s[i] <= '9') {
+			num += s[i];
+		} else if (s[i] === 'A') {
+			attached = true;
+		} else if (s[i] === 'P') {
+			percentage = true;
+		} else if (s[i] === 'D') {
+			attached = true;
+			percentage = true;
+		} else if (s[i] === '|') {
+			numEnd = true;
+		} else if (s[i] === ';') {
+			blockEnd = true;
+		}
+
+		if (attached || percentage || numEnd) {
+			const v = parseInt(num) || 0;
+			if (numIdx === 0) {
+				cell.x = v;
+				cell.xa = attached;
+				cell.xp = percentage;
+			} else if (numIdx === 1) {
+				cell.y = v;
+				cell.ya = attached;
+				cell.yp = percentage;
+			} else if (numIdx === 2) {
+				cell.w = v;
+				cell.wa = attached;
+				cell.wp = percentage;				
+			} else if (numIdx === 3) {
+				cell.h = v;
+				cell.ha = attached;
+				cell.hp = percentage;				
+			}
+			numIdx += 1;
+			num = '';
+			numEnd = false;
+			attached = false;
+			percentage = false;
+		} else if (blockEnd) {
+			grid.push(cell);
+			cell = getInitialGridCell();
+			numIdx = 0;
+			blockEnd = false;
+		}
+	}
+	return grid;
 }
 
 const resizeHandle = {

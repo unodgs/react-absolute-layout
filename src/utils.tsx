@@ -7,13 +7,15 @@ interface LineProps {
 	to?: number,
 	color: string,
 	dashed?: boolean,
-	label?: string
+	label?: string,
+	onTop?: boolean
 }
 
 export class HorzLine extends React.Component<LineProps, {}> {
 	render() {
 		const width = (this.props.from !== undefined && this.props.to !== undefined) ? (this.props.to - this.props.from) : '100%';
 		const left = this.props.from !== undefined ? this.props.from : 0;
+		const zIndex = this.props.onTop ? '1000' : 'auto';
 		return (
 			<div>
 				<div style={{
@@ -23,6 +25,7 @@ export class HorzLine extends React.Component<LineProps, {}> {
 					width: width,
 					left: left,
 					top: this.props.pos,
+					zIndex: zIndex
 				}}/>
 				{this.props.label && <div style={{
 					position: 'absolute',
@@ -32,7 +35,8 @@ export class HorzLine extends React.Component<LineProps, {}> {
 					fontSize: 12,
 					display: 'flex',
 					alignItems: 'center',
-					justifyContent: 'center'
+					justifyContent: 'center',
+					zIndex: zIndex					
 				}}>{this.props.label}</div>}
 			</div>
 		)
@@ -43,6 +47,7 @@ export class VertLine extends React.Component<LineProps, {}> {
 	render() {
 		const height = (this.props.from !== undefined && this.props.to !== undefined) ? (this.props.to - this.props.from) : '100%';
 		const top = this.props.from !== undefined ? this.props.from : 0;
+		const zIndex = this.props.onTop ? '1000' : 'auto';
 		return (
 			<div>
 				<div style={{
@@ -51,7 +56,8 @@ export class VertLine extends React.Component<LineProps, {}> {
 					position: 'absolute',
 					height: height,
 					top: top,
-					left: this.props.pos
+					left: this.props.pos,
+					zIndex: zIndex					
 				}}/>
 				{this.props.label && <div style={{
 					position: 'absolute',
@@ -61,7 +67,8 @@ export class VertLine extends React.Component<LineProps, {}> {
 					fontSize: 12,
 					display: 'flex',
 					alignItems: 'center',
-					justifyContent: 'center'
+					justifyContent: 'center',
+					zIndex: zIndex					
 				}}>{this.props.label}</div>}
 			</div>
 		)
