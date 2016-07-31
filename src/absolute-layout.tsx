@@ -1,6 +1,7 @@
 /// <reference path="../typings/index.d.ts" />
 import * as React from "react";
 import * as ReactDOM from "react-dom";
+import Clipboard from "clipboard";
 import { HorzLine, VertLine } from "./utils";
 
 type Point = {
@@ -17,8 +18,8 @@ interface AbsoluteLayoutProps extends React.Props<AbsoluteLayoutProps> {
 	children?: Array<React.ReactChild>;
 	columns: number;
 	rows: number;
-	width: number;
-	height: number;
+	width: number | string;
+	height: number | string;
 	initialLayout?: string;
 }
 
@@ -53,6 +54,8 @@ interface GridCell {
 type GridLayout = Array<GridCell>;
 
 export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, AbsoluteLayoutState> {
+
+	private clipboard = null;
 
 	constructor(props: AbsoluteLayoutProps) {
 		super(props);
@@ -118,11 +121,26 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
 		}
 	}
 
+	layoutToClipboard = (text: string) => {
+	}
+
 	syncGridSize = (width: number, height: number) => {
 		console.log(`totalWidth ${width}, totalHeight ${height}`);
+		const grid = this.state.grid;
+		if (this.state.totalWidth > 0 && this.state.totalHeight > 0) {
+			grid.forEach(g => {
+				if (g.wa) {
+					g.w += width - this.state.totalWidth;
+				}
+				if (g.ha) {
+					g.h += height - this.state.totalHeight;
+				}
+			});
+		}
 		this.setState({
 			totalWidth: width,
-			totalHeight: height
+			totalHeight: height,
+			grid: grid
 		});
 	}
 
@@ -138,13 +156,16 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
 		document.addEventListener('mouseup', this.onMouseUp);
 		window.addEventListener('resize', this.resize);
 		this.resize();
+		this.clipboard = new Clipboard(this.refs['copyLayout'] as Element);
 	}
 
 	componentWillUnmount = () => {
 		document.removeEventListener('mousedown', this.onMouseDown);
 		document.removeEventListener('mousemove', this.onMouseMove);
 		document.removeEventListener('mouseup', this.onMouseUp);
-		window.removeEventListener('resize', this.resize);		
+		window.removeEventListener('resize', this.resize);
+		this.clipboard.destroy();
+		this.clipboard = null;
 	}
 
 	selectElement = (idx: number, x: number, y: number, w: number, h: number) => {
@@ -258,9 +279,20 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
 		}
 	}
 
+	toggleAttached = (key: string) => {
+		const grid = this.state.grid;
+		grid[this.state.elementIdx][key] = !grid[this.state.elementIdx][key];
+		this.setState({
+			grid: grid
+		});
+	}
+
 	render() {
-		const cols = Math.floor(this.state.totalWidth / this.state.colWidth);
-		const rows = Math.floor(this.state.totalHeight / this.state.rowHeight);
+		const totalWidth = this.state.totalWidth;
+		const totalHeight = this.state.totalHeight;
+
+		const cols = Math.floor(totalWidth / this.state.colWidth);
+		const rows = Math.floor(totalHeight / this.state.rowHeight);
 		
 		const grid = this.state.grid;
 		const elementIdx = this.state.elementIdx;
@@ -325,7 +357,7 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
 				);
 			}
 		}
-		let info = `GRID: [${this.state.totalWidth}, ${this.state.totalHeight}]`;
+		let info = `GRID: [${totalWidth}, ${totalHeight}]`;
 		if (elementIdx >= 0) {
 			const elementKey = (g.element as React.ReactElement<any>).key || 'NO-KEY';
 			const elementSize = `[${g.x}, ${g.y}, ${g.w}, ${g.h}]`;
@@ -388,8 +420,6 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
 						});
 					}
 				}
-						// <span style={resizeHandle}
-						// 	onMouseDown={this.startResizing}/>
 
 				const el = React.cloneElement(cell.element as React.ReactElement<any>, props);
 				return idx === elementIdx ?
@@ -398,10 +428,42 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
 					</div>
 					: el;
 			})}
-			{g && <HorzLine pos={g.y + g.h / 2} label={`${g.x}`} from={0} to={g.x} color="black" onTop={true}/>}
-			{g && <HorzLine pos={g.y + g.h / 2} label={`${this.state.totalWidth - g.x - g.w}`} from={g.x + g.w} to={this.state.totalWidth} color="black" onTop={true}/>}
-			{g && <VertLine pos={g.x + g.w / 2} label={`${g.y}`} from={0} to={g.y} color="black" onTop={true}/>}
-			{g && <VertLine pos={g.x + g.w / 2} label={`${this.state.totalHeight - g.y - g.h}`} from={g.y + g.h} to={this.state.totalHeight} color="black" onTop={true}/>}
+			{g && <HorzLine
+				onClick={() => this.toggleAttached('xa')}
+				size={5}
+				pos={g.y + g.h / 2}
+				label={`${g.x}`}
+				from={0}
+				to={g.x}
+				highlightColor={g.xa && "rgba(255, 0, 0, 0.3)"}
+				onTop={true}/>}
+			{g && <HorzLine
+				onClick={() => this.toggleAttached('wa')}
+				size={5}
+				pos={g.y + g.h / 2}
+				label={`${totalWidth - g.x - g.w}`}
+				from={g.x + g.w}
+				to={totalWidth}
+				highlightColor={g.wa && "rgba(255, 0, 0, 0.3)"}
+				onTop={true}/>}
+			{g && <VertLine
+				onClick={() => this.toggleAttached('ya')}
+				size={5}
+				pos={g.x + g.w / 2}
+				label={`${g.y}`}
+				from={0}
+				to={g.y}
+				highlightColor={g.ya && "rgba(255, 0, 0, 0.3)"}
+				onTop={true}/>}
+			{g && <VertLine
+				onClick={() => this.toggleAttached('ha')}
+				size={5}
+				pos={g.x + g.w / 2}
+				label={`${totalHeight - g.y - g.h}`}
+				from={g.y + g.h}
+				to={totalHeight}
+				highlightColor={g.ha && "rgba(255, 0, 0, 0.3)"}
+				onTop={true}/>}
 			<div style={{
 				backgroundColor: 'rgba(255, 0, 0, 0.5)',
 				top: 0,
@@ -410,7 +472,9 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
 				position: 'absolute',
 				zIndex: 10001
 				}}>
-				<button style={{
+				<button ref="copyLayout" 
+					data-clipboard-text={layoutToStr(this.state.grid)}
+					style={{
 					border: '1px solid black',
 					backgroundColor: 'rgba(255, 0, 0, 0.4)',
 					color: 'white',

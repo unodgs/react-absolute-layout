@@ -22,6 +22,7 @@
   },
   "jspm": {
     "dependencies": {
+      "clipboard": "npm:clipboard@^1.5.12",
       "react": "npm:react@^15.2.1",
       "react-dom": "npm:react-dom@^15.2.1"
     },
