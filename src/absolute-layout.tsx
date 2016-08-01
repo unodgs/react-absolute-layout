@@ -128,12 +128,18 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
 		console.log(`totalWidth ${width}, totalHeight ${height}`);
 		const grid = this.state.grid;
 		if (this.state.totalWidth > 0 && this.state.totalHeight > 0) {
+			const dx = width - this.state.totalWidth;
+			const dy = height - this.state.totalHeight;
 			grid.forEach(g => {
-				if (g.wa) {
-					g.w += width - this.state.totalWidth;
+				if (!g.xa) {
+					g.x += dx;
+				} else if (g.wa) {
+					g.w += dx;
 				}
-				if (g.ha) {
-					g.h += height - this.state.totalHeight;
+				if (!g.ya) {
+					g.y += dy;
+				} else if (g.ha) {
+					g.h += dy;
 				}
 			});
 		}
