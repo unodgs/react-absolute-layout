@@ -151,10 +151,10 @@ export class VertLine extends React.Component<LineProps, LineState> {
 }
 
 function getBackgroundColor(highlighted: boolean, color: string): string {
-	if (highlighted) {
-		return 'rgba(0, 0, 0, 0.1)'; 
-	} else if (color) {
+	if (color) {
 		return color;
+	} else if (highlighted) {
+		return 'rgba(0, 0, 0, 0.1)';
 	} else { 
 		return 'rgba(0, 0, 0, 0)';
 	}

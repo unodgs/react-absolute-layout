@@ -2,7 +2,7 @@
     "compilerOptions": {
         "jsx": "react",
         "module": "system",
-        "moduleResolution": "node",
+        "moduleResolution": "classic",
         "declaration": false,
         "target": "es6",
         "experimentalDecorators": true,

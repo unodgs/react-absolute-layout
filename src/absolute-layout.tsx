@@ -1,8 +1,10 @@
 /// <reference path="../typings/index.d.ts" />
 import * as React from "react";
 import * as ReactDOM from "react-dom";
-import Clipboard from "clipboard";
-import { HorzLine, VertLine } from "./utils";
+import LZString from 'lz-string';
+import objectAssign from 'object-assign';
+import Clipboard from 'clipboard';
+import { HorzLine, VertLine } from "./utils" ;
 
 type Point = {
 	x: number;
@@ -42,12 +44,15 @@ interface AbsoluteLayoutState {
 	}
 }
 
+const PIN_PIXEL = 1;
+const PIN_PERCENT = 2;
+
 interface GridCell {
-	// value, attached, percentage
-	x: number; xa: boolean; xp: boolean;
-	y: number; ya: boolean; yp: boolean;
-	w: number; wa: boolean; wp: boolean; 
-	h: number; ha: boolean; hp: boolean;
+	// pos, pin mode, locked pos
+	x: number; xp: number; xl: number; 
+	y: number; yp: number; yl: number;
+	w: number; wp: number; wl: number;
+	h: number; hp: number; hl: number;
 	element: React.ReactChild;
 };
 
@@ -61,8 +66,12 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
 		super(props);
 		const colWidth = 40;
 		const rowHeight = 40;
-		const grid = this.props.initialLayout
-			? this.updateLayoutChildren(strToLayout(this.props.initialLayout), props.children)
+		let layout = LZString.decompressFromUTF16(this.props.initialLayout);
+		if (!layout) {
+			layout = this.props.initialLayout;
+		}
+		const grid = layout
+			? this.updateLayoutChildren(strToLayout(layout), props.children)
 			: this.getInitialGrid(props.children, colWidth, rowHeight);
 		const snapPoints = this.getSnapPoints(grid, -1);
 		this.state = {
@@ -131,15 +140,19 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
 			const dx = width - this.state.totalWidth;
 			const dy = height - this.state.totalHeight;
 			grid.forEach(g => {
-				if (!g.xa) {
+				if (g.xp == 0 && g.wp == PIN_PIXEL) {
 					g.x += dx;
-				} else if (g.wa) {
+				} else if (g.wp == PIN_PIXEL) {
 					g.w += dx;
 				}
-				if (!g.ya) {
+				if (g.yp == 0 && g.hp == PIN_PIXEL) {
 					g.y += dy;
-				} else if (g.ha) {
+				} else if (g.hp == PIN_PIXEL) {
 					g.h += dy;
+				}
+
+				if (g.xp == PIN_PERCENT) {
+					g.x = this.getPos(g.x + dx, g.xp, this.state.totalWidth);
 				}
 			});
 		}
@@ -233,6 +246,19 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
 			gi.x = fx;
 			gi.y = fy;
 
+			if (gi.xl >= 0) {
+				gi.xl = this.getPos(gi.x, gi.xp, this.state.totalWidth);
+			}
+
+			if (gi.yl >= 0) {
+				gi.yl = this.getPos(gi.y, gi.yp, this.state.totalHeight);
+			}
+
+			if (gi.wl >= 0) {
+				gi.xl = this.getPos(gi.x, gi.xp, this.state.totalWidth);
+			}
+
+
 			this.setState({
 				mouseCurrPos: { x: e.clientX, y: e.clientY },
 				grid: grid,
@@ -285,12 +311,47 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
 		}
 	}
 
-	toggleAttached = (key: string) => {
+	togglePinMode = (key: string) => {
 		const grid = this.state.grid;
-		grid[this.state.elementIdx][key] = !grid[this.state.elementIdx][key];
+		const idx = this.state.elementIdx;
+		grid[idx][key] += 1;
+		if (grid[idx][key] > 2)
+			grid[idx][key] = 0;
+
+		if (grid[idx][key] === PIN_PERCENT) {
+			grid[idx][key[0] + 'l'] = this.getPos(grid[idx][key[0]], grid[idx][key], this.state.totalWidth);
+		}
 		this.setState({
 			grid: grid
 		});
+	}
+
+	getHighlightColor(pinMode: number): string {
+		if (pinMode === PIN_PIXEL) {
+			return "rgba(255, 0, 0, 0.3)";
+		} else if (pinMode === PIN_PERCENT) {
+			return "rgba(0, 255, 0, 0.3)"
+		} else {
+			return undefined;
+		}
+	}
+
+	getSizeLabel(size: number, pinMode: number, totalSize: number): string {
+		if (pinMode === PIN_PERCENT) {
+			//return `${Math.round(size * 100 / totalSize)}%`;
+			return `${size}%`;
+		} else {
+			return `${size}px`;
+		}
+	}
+
+	getPos(pos: number, pinMode: number, totalSize: number): number {
+		if (pinMode === PIN_PERCENT) {
+			const p = pos * 100 / totalSize;
+			return Math.round(p);
+		} else {
+			return pos;
+		}		
 	}
 
 	render() {
@@ -380,17 +441,27 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
 			}}>
 			{colLines}
 			{rowLines}
-			{this.state.grid.map((cell, idx: number) => {
-				const posStyle = {
-					left: `${cell.x}px`,
-					top: `${cell.y}px`,
-					width: cell.w,
-					height: cell.h,
-					position: 'absolute',
-					zIndex: idx === elementIdx ? 10000 : 'auto',
-				};
+			{this.state.grid.map((g: GridCell, idx: number) => {
+				const x = this.getPos(g.x, g.xp, totalWidth);
+				const y = this.getPos(g.y, g.yp, totalHeight);
+				const w = this.getPos(g.x + g.w, g.wp, totalWidth);
+				const h = this.getPos(g.y + g.h, g.hp, totalHeight);
 
-				let style = merge(cell.element.props.style, {
+				const posStyle = {
+					position: 'absolute',
+					zIndex: idx === elementIdx ? 10000 : 'auto'
+				};
+				
+				// const left = g.xp === PIN_PIXEL
+				// 	? g.x
+				// 	: Math.ceil(g.x )
+
+				// posStyle.left = `${x}px`;
+				// posStyle.top = `${y}px`;  
+				// posStyle.width = w - x;
+				// posStyle.height = h - y;
+				const gel: any = g.element;
+				let style = merge(gel.props.style, {
 					boxSizing: 'border-box',
 					// border: idx === elementIdx ? '2px dashed black' : 'none',
 					opacity: this.state.dragging ? 0.8 : 1
@@ -427,7 +498,7 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
 					}
 				}
 
-				const el = React.cloneElement(cell.element as React.ReactElement<any>, props);
+				const el = React.cloneElement(g.element as React.ReactElement<any>, props);
 				return idx === elementIdx ?
 					<div key={`cellSel/${idx}`} style={posStyle}>
 						{el}
@@ -435,40 +506,40 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
 					: el;
 			})}
 			{g && <HorzLine
-				onClick={() => this.toggleAttached('xa')}
+				onClick={() => this.togglePinMode('xp')}
 				size={5}
 				pos={g.y + g.h / 2}
-				label={`${g.x}`}
+				label={this.getSizeLabel(g.x, g.xp, totalWidth)}
 				from={0}
 				to={g.x}
-				highlightColor={g.xa && "rgba(255, 0, 0, 0.3)"}
+				highlightColor={this.getHighlightColor(g.xp)}
 				onTop={true}/>}
 			{g && <HorzLine
-				onClick={() => this.toggleAttached('wa')}
+				onClick={() => this.togglePinMode('wp')}
 				size={5}
 				pos={g.y + g.h / 2}
-				label={`${totalWidth - g.x - g.w}`}
+				label={this.getSizeLabel(totalWidth - g.x - g.w, g.wp, totalWidth)}
 				from={g.x + g.w}
 				to={totalWidth}
-				highlightColor={g.wa && "rgba(255, 0, 0, 0.3)"}
+				highlightColor={this.getHighlightColor(g.wp)}
 				onTop={true}/>}
 			{g && <VertLine
-				onClick={() => this.toggleAttached('ya')}
+				onClick={() => this.togglePinMode('yp')}
 				size={5}
 				pos={g.x + g.w / 2}
-				label={`${g.y}`}
+				label={this.getSizeLabel(g.y, g.yp, totalHeight)}
 				from={0}
 				to={g.y}
-				highlightColor={g.ya && "rgba(255, 0, 0, 0.3)"}
+				highlightColor={this.getHighlightColor(g.yp)}
 				onTop={true}/>}
 			{g && <VertLine
-				onClick={() => this.toggleAttached('ha')}
+				onClick={() => this.togglePinMode('hp')}
 				size={5}
 				pos={g.x + g.w / 2}
-				label={`${totalHeight - g.y - g.h}`}
+				label={this.getSizeLabel(totalHeight - g.y - g.h, g.hp, totalHeight)}
 				from={g.y + g.h}
 				to={totalHeight}
-				highlightColor={g.ha && "rgba(255, 0, 0, 0.3)"}
+				highlightColor={this.getHighlightColor(g.hp)}
 				onTop={true}/>}
 			<div style={{
 				backgroundColor: 'rgba(255, 0, 0, 0.5)',
@@ -479,7 +550,7 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
 				zIndex: 10001
 				}}>
 				<button ref="copyLayout" 
-					data-clipboard-text={layoutToStr(this.state.grid)}
+					data-clipboard-text={LZString.compressToUTF16(layoutToStr(this.state.grid))}
 					style={{
 					border: '1px solid black',
 					backgroundColor: 'rgba(255, 0, 0, 0.4)',
@@ -543,37 +614,36 @@ function snapToGrid(pos: number, snapPoints: number[], cellSize: number): SnapPo
 
 function merge(...objs) {
 	const m = {};
-	Object.assign.apply(this, [m].concat(objs));
+	objectAssign.apply(this, [m].concat(objs));
 	return m;
 }
 
 function layoutToStr(layout: GridLayout): string {
-	function posToStr(p: number, attached: boolean, percentage: boolean): string {
+	function posToStr(p: number, pinMode: number): string {
 		let s = `${p}`;
-		if (attached && !percentage) s += 'A';
-		if (!attached && percentage) s += 'P';
-		if (attached && percentage)  s += 'D';
-		if (!attached && !percentage) s += "|";
+		if (pinMode == PIN_PIXEL) s += 'A';
+		else if (pinMode == PIN_PERCENT) s += 'P';
+		else if (pinMode == 0) s += "|";
 		return s;
 	}
 	let s = '';
 	layout.forEach((g: GridCell, idx: number) => {
 		s += 
-			posToStr(g.x, g.xa, g.xp) +
-			posToStr(g.y, g.ya, g.yp) +
-			posToStr(g.w, g.wa, g.wp) +
-			posToStr(g.h, g.ha, g.hp) +
-			(idx < layout.length - 1 ? ";" : "");
+			posToStr(g.x, g.xp) +
+			posToStr(g.y, g.yp) +
+			posToStr(g.w, g.wp) +
+			posToStr(g.h, g.hp) +
+			";";
 	});
 	return s;
 }
 
 function getInitialGridCell(): GridCell {
 	return {
-		x: 0, xa: false, xp: false,
-		y: 0, ya: false, yp: false,
-		w: 0, wa: false, wp: false,
-		h: 0, ha: false, hp: false,
+		x: 0, xp: PIN_PIXEL, xl: -1,
+		y: 0, yp: PIN_PIXEL, yl: -1,
+		w: 0, wp: PIN_PIXEL, wl: -1,
+		h: 0, hp: PIN_PIXEL, hl: -1,
 		element: null
 	}
 }
@@ -581,8 +651,7 @@ function getInitialGridCell(): GridCell {
 function strToLayout(s: string): GridLayout {
 	let num = '';
 	let numIdx = 0;
-	let attached = false;
-	let percentage = false;
+	let pinMode = 0;
 	let numEnd = false;
 	let blockEnd = false;
 
@@ -593,42 +662,34 @@ function strToLayout(s: string): GridLayout {
 		if (s[i] >= '0' && s[i] <= '9') {
 			num += s[i];
 		} else if (s[i] === 'A') {
-			attached = true;
+			pinMode = PIN_PIXEL;
 		} else if (s[i] === 'P') {
-			percentage = true;
-		} else if (s[i] === 'D') {
-			attached = true;
-			percentage = true;
+			pinMode = PIN_PERCENT;
 		} else if (s[i] === '|') {
 			numEnd = true;
 		} else if (s[i] === ';') {
 			blockEnd = true;
 		}
 
-		if (attached || percentage || numEnd) {
+		if (pinMode != 0 || numEnd) {
 			const v = parseInt(num) || 0;
 			if (numIdx === 0) {
 				cell.x = v;
-				cell.xa = attached;
-				cell.xp = percentage;
+				cell.xp = pinMode;
 			} else if (numIdx === 1) {
 				cell.y = v;
-				cell.ya = attached;
-				cell.yp = percentage;
+				cell.yp = pinMode;
 			} else if (numIdx === 2) {
 				cell.w = v;
-				cell.wa = attached;
-				cell.wp = percentage;				
+				cell.wp = pinMode;
 			} else if (numIdx === 3) {
 				cell.h = v;
-				cell.ha = attached;
-				cell.hp = percentage;				
+				cell.hp = pinMode;
 			}
 			numIdx += 1;
 			num = '';
 			numEnd = false;
-			attached = false;
-			percentage = false;
+			pinMode = 0;
 		} else if (blockEnd) {
 			grid.push(cell);
 			cell = getInitialGridCell();

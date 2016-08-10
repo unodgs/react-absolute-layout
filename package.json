@@ -13,6 +13,7 @@
   "devDependencies": {
     "express": "4.14.0",
     "jspm": "0.16.39",
+    "lz-string": "1.4.4",
     "react": "15.2.1",
     "react-dom": "15.2.1",
     "requirejs": "2.2.0",
@@ -23,6 +24,8 @@
   "jspm": {
     "dependencies": {
       "clipboard": "npm:clipboard@^1.5.12",
+      "lz-string": "npm:lz-string@^1.4.4",
+      "object-assign": "npm:object-assign@^4.1.0",
       "react": "npm:react@^15.2.1",
       "react-dom": "npm:react-dom@^15.2.1"
     },

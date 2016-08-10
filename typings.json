@@ -5,6 +5,8 @@
     "react-dom": "registry:npm/react-dom#15.0.1+20160705210405"
   },
   "globalDependencies": {
-    "clipboard": "registry:dt/clipboard#1.5.9+20160316155526"
+    "clipboard": "registry:dt/clipboard#1.5.9+20160316155526",
+    "lz-string": "file:./node_modules/lz-string/typings/lz-string.d.ts",
+    "object-assign": "registry:dt/object-assign#4.0.1+20160316155526"
   }
 }
