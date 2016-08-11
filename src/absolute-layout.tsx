@@ -67,7 +67,7 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
 		super(props);
 		const colWidth = 40;
 		const rowHeight = 40;
-		let layout = LZString.decompressFromUTF16(this.props.initialLayout);
+		let layout = LZString.decompressFromBase64(this.props.initialLayout);
 		if (!layout) {
 			layout = this.props.initialLayout;
 		}
@@ -111,6 +111,14 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
 			y0: rowHeight + (idx * rowHeight * 2),
 			x1: colWidth + colWidth * 5,
 			y1: rowHeight + (idx * rowHeight * 2) + rowHeight * 2,
+			xl0: -1,
+			yl0: -1,
+			xl1: -1,
+			yl1: -1,
+			xp0: PIN_NONE,
+			yp0: PIN_NONE,
+			xp1: PIN_NONE,
+			yp1: PIN_NONE,
 			element: el
 		} as GridCell))
 	}
@@ -132,13 +140,10 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
 		}
 	}
 
-	layoutToClipboard = (text: string) => {
-	}
-
 	syncGridSize = (width: number, height: number) => {
 		const grid = this.state.grid;
 
-		if (this.state.totalWidth > 0 && this.state.totalHeight > 0) {
+		if (width > 0 && height > 0) {
 			console.log(`totalWidth ${width}, totalHeight ${height}`);
 	
 			grid.forEach(g => {
@@ -181,6 +186,14 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
 						g.y0 += (g.y1 - y1);
 					}
 				}
+
+				if (g.x0 > g.x1) {
+					g.x1 = g.x0;
+				}
+
+				if (g.y0 > g.y1) {
+					g.y1 = g.y0;
+				}
 			});
 		}
 		this.setState({
@@ -188,6 +201,16 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
 			totalHeight: height,
 			grid: grid
 		});
+	}
+	syncCellPins = (g: GridCell, width: number, height: number) => {
+		g.xl0 = this.getLockPos(g.x0, g.xp0, width);
+		g.yl0 = this.getLockPos(g.y0, g.yp0, height);
+		g.xl1 = this.getLockPos(width - g.x1, g.xp1, width);
+		g.yl1 = this.getLockPos(height - g.y1, g.yp1, height);
+	}
+
+	syncGridPins = (grid: GridLayout, width: number, height: number) => {
+		grid.forEach(g => this.syncCellPins(g, width, height));
 	}
 
 	resize = () => {
@@ -203,6 +226,12 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
 		window.addEventListener('resize', this.resize);
 		this.resize();
 		this.clipboard = new Clipboard(this.refs['copyLayout'] as Element);
+	}
+
+	componentDidUpdate = (prevProps: AbsoluteLayoutProps) => {
+		if (this.props.initialLayout && prevProps.initialLayout !== this.props.initialLayout) {
+			this.resize();
+		}
 	}
 
 	componentWillUnmount = () => {
@@ -292,11 +321,7 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
 		}
 
 		if (this.state.resizing || this.state.dragging) {
-			gi.xl0 = this.getLockPos(gi.x0, gi.xp0, this.state.totalWidth);
-			gi.yl0 = this.getLockPos(gi.y0, gi.yp0, this.state.totalHeight);
-			gi.xl1 = this.getLockPos(this.state.totalWidth - gi.x1, gi.xp1, this.state.totalWidth);
-			gi.yl1 = this.getLockPos(this.state.totalHeight - gi.y1, gi.yp1, this.state.totalHeight);
-
+			this.syncCellPins(gi, this.state.totalWidth, this.state.totalHeight);
 			this.setState({
 				mouseCurrPos: { x: e.clientX, y: e.clientY },
 				grid: grid,
@@ -452,10 +477,14 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
 				);
 			}
 		}
-		let info = `GRID: [${totalWidth}, ${totalHeight}]`;
+		let info = `GRID: [${Math.round(totalWidth)}, ${Math.round(totalHeight)}]`;
 		if (elementIdx >= 0) {
 			const elementKey = (g.element as React.ReactElement<any>).key || 'NO-KEY';
-			const elementSize = `[${g.x0}, ${g.y0}, ${g.x1 - g.x0}, ${g.y1 - g.y0}]`;
+			const x = Math.round(g.x0);
+			const y = Math.round(g.y0);
+			const w = Math.round(g.x1 - g.x0);
+			const h = Math.round(g.y1 - g.y0);
+			const elementSize = `[${x}, ${y}, ${w}, ${h}]`;
 			info += ` | BOX ${elementIdx} (${elementKey}): ${elementSize}`;
 		}
 
@@ -470,25 +499,15 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
 			{colLines}
 			{rowLines}
 			{this.state.grid.map((g: GridCell, idx: number) => {
-				// const x = this.getPos(g.x, g.xp, totalWidth);
-				// const y = this.getPos(g.y, g.yp, totalHeight);
-				// const w = this.getPos(g.x + g.w, g.wp, totalWidth);
-				// const h = this.getPos(g.y + g.h, g.hp, totalHeight);
-
 				const posStyle: any = {
 					position: 'absolute',
-					zIndex: idx === elementIdx ? 10000 : 'auto'
+					zIndex: idx === elementIdx ? 10000 : 'auto',
+					left: `${g.x0}px`,
+					top: `${g.y0}px`,
+					width: `${g.x1 - g.x0}px`,
+					height: `${g.y1 - g.y0}px`
 				};
 				
-				// const left = g.xp === PIN_PIXEL
-				// 	? g.x
-				// 	: Math.ceil(g.x )
-
-				posStyle.left = `${g.x0}px`;
-				posStyle.top = `${g.y0}px`;  
-				posStyle.width = `${g.x1 - g.x0}px`;
-				posStyle.height = `${g.y1 - g.y0}px`;
-
 				const gel: any = g.element;
 				let style = merge(gel.props.style, {
 					boxSizing: 'border-box',
@@ -513,11 +532,11 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
 						if (this.state.elementIdx === idx) {
 							t = t.parentNode as HTMLElement;
 						}
-						
+
 						const mx = e.clientX - t.offsetLeft + document.documentElement.scrollLeft;
 						const my = e.clientY - t.offsetTop + document.documentElement.scrollTop;
 
-						const resizing = mx > t.offsetWidth - 20 && my > t.offsetHeight - 20;
+						const resizing = mx > t.offsetWidth - 5 && my > t.offsetHeight - 5;
 
 						this.selectElement(idx, t.offsetLeft, t.offsetTop, t.offsetWidth, t.offsetHeight);
 						this.setState({
@@ -580,7 +599,7 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
 				zIndex: 10001
 				}}>
 				<button ref="copyLayout" 
-					data-clipboard-text={LZString.compressToUTF16(layoutToStr(this.state.grid))}
+					data-clipboard-text={LZString.compressToBase64(layoutToStr(this.state.grid))}
 					style={{
 					border: '1px solid black',
 					backgroundColor: 'rgba(255, 0, 0, 0.4)',
@@ -649,31 +668,32 @@ function merge(...objs) {
 }
 
 function layoutToStr(layout: GridLayout): string {
-	function posToStr(p: number, pinMode: number): string {
-		let s = `${p}`;
+	function posToStr(pos: number, lockPos: number, pinMode: number): string {
+		let s = `${Math.round(pinMode == PIN_NONE ? pos : lockPos)}`;
 		if (pinMode == PIN_PIXEL) s += 'A';
 		else if (pinMode == PIN_PERCENT) s += 'P';
-		else if (pinMode == 0) s += "|";
+		else if (pinMode == 0) s += "N";
 		return s;
 	}
 	let s = '';
-	layout.forEach((g: GridCell, idx: number) => {
+	layout.forEach((g: GridCell) => {
 		s += 
-			posToStr(g.x1, g.xp0) +
-			posToStr(g.y1, g.yp1) +
-			posToStr(g.x1 - g.x0, g.xp1) +
-			posToStr(g.y1 - g.y0, g.yp1) +
-			";";
+			posToStr(g.x0, g.xl0, g.xp0) +
+			posToStr(g.y0, g.yl0, g.yp0) +
+			posToStr(g.x1, g.xl1, g.xp1) +
+			posToStr(g.y1, g.yl1, g.yp1) +
+			"+";
 	});
+
 	return s;
 }
 
 function getInitialGridCell(): GridCell {
 	return {
-		x0: 0, xp0: PIN_PIXEL, xl0: -1,
-		y0: 0, yp0: PIN_PIXEL, yl0: -1,
-		x1: 0, xp1: PIN_PIXEL, xl1: -1,
-		y1: 0, yp1: PIN_PIXEL, yl1: -1,
+		x0: 0, xp0: PIN_NONE, xl0: -1,
+		y0: 0, yp0: PIN_NONE, yl0: -1,
+		x1: 0, xp1: PIN_NONE, xl1: -1,
+		y1: 0, yp1: PIN_NONE, yl1: -1,
 		element: null
 	}
 }
@@ -681,7 +701,7 @@ function getInitialGridCell(): GridCell {
 function strToLayout(s: string): GridLayout {
 	let num = '';
 	let numIdx = 0;
-	let pinMode = 0;
+	let pinMode = PIN_NONE;
 	let numEnd = false;
 	let blockEnd = false;
 
@@ -695,25 +715,41 @@ function strToLayout(s: string): GridLayout {
 			pinMode = PIN_PIXEL;
 		} else if (s[i] === 'P') {
 			pinMode = PIN_PERCENT;
-		} else if (s[i] === '|') {
+		} else if (s[i] === 'N') {
 			numEnd = true;
-		} else if (s[i] === ';') {
+		} else if (s[i] === '+') {
 			blockEnd = true;
 		}
 
-		if (pinMode != 0 || numEnd) {
+		if (pinMode != PIN_NONE || numEnd) {
 			const v = parseInt(num) || 0;
 			if (numIdx === 0) {
-				cell.x0 = v;
+				if (pinMode === PIN_NONE) {
+					cell.x0 = v;
+				} else {
+					cell.xl0 = v;
+				}
 				cell.xp0 = pinMode;
 			} else if (numIdx === 1) {
-				cell.y0 = v;
+				if (pinMode === PIN_NONE) {
+					cell.y0 = v;
+				} else {
+					cell.yl0 = v;
+				}
 				cell.yp0 = pinMode;
 			} else if (numIdx === 2) {
-				cell.x1 = cell.x0 + v;
+				if (pinMode === PIN_NONE) {
+					cell.x1 = v;
+				} else {
+					cell.xl1 = v;
+				}
 				cell.xp1 = pinMode;
 			} else if (numIdx === 3) {
-				cell.y1 = cell.y0 + v;
+				if (pinMode === PIN_NONE) {
+					cell.y1 = v;
+				} else {
+					cell.yl1 = v;
+				}
 				cell.yp1 = pinMode;
 			}
 			numIdx += 1;
