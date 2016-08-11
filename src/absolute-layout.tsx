@@ -44,6 +44,7 @@ interface AbsoluteLayoutState {
 	}
 }
 
+const PIN_NONE = 0;
 const PIN_PIXEL = 1;
 const PIN_PERCENT = 2;
 
@@ -73,6 +74,7 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
 		const grid = layout
 			? this.updateLayoutChildren(strToLayout(layout), props.children)
 			: this.getInitialGrid(props.children, colWidth, rowHeight);
+
 		const snapPoints = this.getSnapPoints(grid, -1);
 		this.state = {
 			grid: grid,
@@ -134,26 +136,51 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
 	}
 
 	syncGridSize = (width: number, height: number) => {
-		console.log(`totalWidth ${width}, totalHeight ${height}`);
 		const grid = this.state.grid;
+
 		if (this.state.totalWidth > 0 && this.state.totalHeight > 0) {
-			const dx = width - this.state.totalWidth;
-			const dy = height - this.state.totalHeight;
+			console.log(`totalWidth ${width}, totalHeight ${height}`);
+	
 			grid.forEach(g => {
-				if (g.xp0 == 0 && g.xp1 == PIN_PIXEL) {
-					g.xp0 += dx;
-				} else if (g.xp1 == PIN_PIXEL) {
-					g.xp1 += dx;
-				}
-				if (g.yp0 == 0 && g.yp1 == PIN_PIXEL) {
-					g.yp0 += dy;
-				} else if (g.yp1 == PIN_PIXEL) {
-					g.yp1 += dy;
+				if (g.xp0 == PIN_PIXEL) {
+					g.x0 = g.xl0;
+				} else if (g.xp0 == PIN_PERCENT) {
+					const x0 = g.x0;
+					g.x0 = width * g.xl0 / 100;
+					if (g.xp1 == PIN_NONE) {
+						g.x1 += (g.x0 - x0);
+					}
 				}
 
-				// if (g.xp == PIN_PERCENT) {
-				// 	g.x = this.getPos(g.x + dx, g.xp, this.state.totalWidth);
-				// }
+				if (g.yp0 == PIN_PIXEL) {
+					g.y0 = g.yl0;
+				} else if (g.yp0 == PIN_PERCENT) {
+					const y0 = g.y0;
+					g.y0 = height * g.yl0 / 100;
+					if (g.yp1 == PIN_NONE) {
+						g.y1 += (g.y0 - y0);
+					}
+				}
+
+				if (g.xp1 == PIN_PIXEL) {
+					g.x1 = width - g.xl1;
+				} else if (g.xp1 == PIN_PERCENT) {
+					const x1 = g.x1;
+					g.x1 = width - width * g.xl1 / 100;
+					if (g.xp0 == PIN_NONE) {
+						g.x0 += (g.x1 - x1);
+					}
+				}
+
+				if (g.yp1 == PIN_PIXEL) {
+					g.y1 = height - g.yl1;
+				} else if (g.yp1 == PIN_PERCENT) {
+					const y1 = g.y1;
+					g.y1 = height - height * g.yl1 / 100;
+					if (g.yp0 == PIN_NONE) {
+						g.y0 += (g.y1 - y1);
+					}
+				}
 			});
 		}
 		this.setState({
@@ -265,10 +292,10 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
 		}
 
 		if (this.state.resizing || this.state.dragging) {
-			if (gi.xl0 >= 0) gi.xl0 = this.getPos(gi.x0, gi.xp0, this.state.totalWidth);
-			if (gi.yl0 >= 0) gi.yl0 = this.getPos(gi.y0, gi.yp0, this.state.totalHeight);
-			if (gi.xl1 >= 0) gi.xl1 = this.getPos(gi.x1, gi.xp1, this.state.totalWidth);
-			if (gi.yl1 >= 0) gi.yl1 = this.getPos(gi.y1, gi.yp1, this.state.totalHeight);
+			gi.xl0 = this.getLockPos(gi.x0, gi.xp0, this.state.totalWidth);
+			gi.yl0 = this.getLockPos(gi.y0, gi.yp0, this.state.totalHeight);
+			gi.xl1 = this.getLockPos(this.state.totalWidth - gi.x1, gi.xp1, this.state.totalWidth);
+			gi.yl1 = this.getLockPos(this.state.totalHeight - gi.y1, gi.yp1, this.state.totalHeight);
 
 			this.setState({
 				mouseCurrPos: { x: e.clientX, y: e.clientY },
@@ -299,16 +326,29 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
 		}
 	}
 
-	togglePinMode = (key: string) => {
+	togglePinMode = (key: string, totalSize: number) => {
 		const grid = this.state.grid;
 		const idx = this.state.elementIdx;
-		grid[idx][key] += 1;
-		if (grid[idx][key] > 2)
-			grid[idx][key] = 0;
+		const g = grid[idx];
+		const lockKey = key[0] + 'l' + key[2];
+		const posKey = key[0] + key[2];
+		let pinMode = g[key];
 
-		if (grid[idx][key] === PIN_PERCENT) {
-			grid[idx][key[0] + 'l'] = this.getPos(grid[idx][key[0]], grid[idx][key], this.state.totalWidth);
+		console.log(`Toggle for key ${key} of ${idx}`);
+
+		pinMode += 1;
+		if (pinMode > 2)
+			pinMode = 0;
+
+		if (pinMode === PIN_PERCENT || pinMode === PIN_PIXEL) {
+			const pos = key[2] == '0' ? g[posKey] : totalSize - g[posKey];
+			grid[idx][lockKey] = this.getLockPos(pos, pinMode, totalSize);
+		} else if (grid[idx][key] === PIN_NONE) {
+			grid[idx][lockKey] = -1;
 		}
+
+		grid[idx][key] = pinMode;
+
 		this.setState({
 			grid: grid
 		});
@@ -324,22 +364,22 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
 		}
 	}
 
-	getSizeLabel(size: number, pinMode: number, totalSize: number): string {
+	getPosLabel(pos: number, lockPos: number, pinMode: number): string {
 		if (pinMode === PIN_PERCENT) {
-			//return `${Math.round(size * 100 / totalSize)}%`;
-			return `${size}%`;
+			return `${Math.round(lockPos)}%`;
+		} else if (pinMode === PIN_PIXEL) {
+			return `${Math.round(lockPos)}px`
 		} else {
-			return `${size}px`;
+			return `${Math.round(pos)}px`;
 		}
 	}
 
-	getPos(pos: number, pinMode: number, totalSize: number): number {
+	getLockPos(pos: number, pinMode: number, totalSize: number): number {
 		if (pinMode === PIN_PERCENT) {
-			const p = pos * 100 / totalSize;
-			return Math.round(p);
+			return pos * 100 / totalSize;
 		} else {
 			return pos;
-		}		
+		}
 	}
 
 	render() {
@@ -487,7 +527,8 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
 					}
 				}
 
-				const el = React.cloneElement(g.element as React.ReactElement<any>, props);
+				const el = React.cloneElement(g.element as React.ReactElement<any>, props,
+					 <span>{Math.round(g.x1 - g.x0)}, {Math.round(g.y1 - g.y0)}</span>);
 				return idx === elementIdx ?
 					<div key={`cellSel/${idx}`} style={posStyle}>
 						{el}
@@ -495,37 +536,37 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
 					: el;
 			})}
 			{g && <HorzLine
-				onClick={() => this.togglePinMode('xp0')}
+				onClick={() => this.togglePinMode('xp0', totalWidth)}
 				size={5}
 				pos={(g.y0 + g.y1) / 2}
-				label={this.getSizeLabel(g.x0, g.xp0, totalWidth)}
+				label={this.getPosLabel(g.x0, g.xl0, g.xp0)}
 				from={0}
 				to={g.x0}
 				highlightColor={this.getHighlightColor(g.xp0)}
 				onTop={true}/>}
 			{g && <HorzLine
-				onClick={() => this.togglePinMode('xp1')}
+				onClick={() => this.togglePinMode('xp1', totalWidth)}
 				size={5}
 				pos={(g.y0 + g.y1) / 2}
-				label={this.getSizeLabel(totalWidth - g.x1, g.xp1, totalWidth)}
+				label={this.getPosLabel(totalWidth - g.x1, g.xl1, g.xp1)}
 				from={g.x1}
 				to={totalWidth}
 				highlightColor={this.getHighlightColor(g.xp1)}
 				onTop={true}/>}
 			{g && <VertLine
-				onClick={() => this.togglePinMode('yp0')}
+				onClick={() => this.togglePinMode('yp0', totalHeight)}
 				size={5}
 				pos={(g.x0 + g.x1) / 2}
-				label={this.getSizeLabel(g.y0, g.yp0, totalHeight)}
+				label={this.getPosLabel(g.y0, g.yl0, g.yp0)}
 				from={0}
 				to={g.y0}
 				highlightColor={this.getHighlightColor(g.yp0)}
 				onTop={true}/>}
 			{g && <VertLine
-				onClick={() => this.togglePinMode('yp1')}
+				onClick={() => this.togglePinMode('yp1', totalHeight)}
 				size={5}
 				pos={(g.x0 + g.x1) / 2}
-				label={this.getSizeLabel(totalHeight - g.y1, g.yp1, totalHeight)}
+				label={this.getPosLabel(totalHeight - g.y1, g.yl1, g.yp1)}
 				from={g.y1}
 				to={totalHeight}
 				highlightColor={this.getHighlightColor(g.yp1)}

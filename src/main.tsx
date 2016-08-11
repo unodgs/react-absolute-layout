@@ -8,13 +8,13 @@ import { AbsoluteLayout } from "./absolute-layout";
                                   
 class App extends React.Component<{}, {}> {
 	render() {
-		return <div>
+		return <div style={{position: 'absolute', right: 50, left: '35%'}}>
 			<AbsoluteLayout columns={20} rows={20} width={"100%"} height={500}
 				initialLayout="ᦡᠣ࣮ཨβΐ˩൏ұ㍥垍㧈⭑ࣄ">
 				<div style={{backgroundColor: 'red'}}/>
 				<div style={{backgroundColor: 'green'}}/>
 				<div style={{backgroundColor: 'yellow'}}/>
-				<input/>
+				<div style={{backgroundColor: 'blue'}}/>
 			</AbsoluteLayout>
 		</div>
 	}
