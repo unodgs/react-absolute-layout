@@ -10,7 +10,7 @@ class App extends React.Component<{}, {}> {
 	render() {
 		return <div style={{position: 'absolute', right: 50, left: '35%'}}>
 			<AbsoluteLayout columns={20} rows={20} width={"100%"} height={500}
-				initialLayout="EwFgDAguByIwzADkgahgRmGapteyrjmNnHstGuXggGwFA===">
+				initialLayout="EwDgDAggzAbGByBWMJ7ACwQNToQRmAQyLAS1HznnXDV3iymAAVgZF4oB2ZqdDrEA">
 				<div style={{backgroundColor: 'red'}}/>
 				<div style={{backgroundColor: 'green'}}/>
 				<div style={{backgroundColor: 'yellow'}}/>

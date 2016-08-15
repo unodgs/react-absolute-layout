@@ -6,6 +6,8 @@ import objectAssign from 'object-assign';
 import Clipboard from 'clipboard';
 import { HorzLine, VertLine } from "./utils" ;
 
+const RESIZE_SIZE = 20;
+
 type Point = {
 	x: number;
 	y: number;
@@ -40,8 +42,11 @@ interface AbsoluteLayoutState {
 	rowHeight?: number;
 	snapPoints?: {
 		horizontal: number[],
-		vertical: number[]
-	}
+		vertical: number[],
+		middleHorizontal: number[],
+		middleVertical: number[]
+	};
+	editMode?: boolean;
 }
 
 const PIN_NONE = 0;
@@ -88,7 +93,8 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
 			totalWidth: 0,
 			totalHeight: 0,
 			colWidth: 40,
-			rowHeight: 40
+			rowHeight: 40,
+			editMode: true
 		}
 	}
 	
@@ -126,17 +132,23 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
 	getSnapPoints(grid: GridLayout, selectedIdx: number) {
 		const xs = [];
 		const ys = [];
+		const mxs = [];
+		const mys = [];
 
 		for (let i = 0; i < grid.length; i++) {
 			if (i !== selectedIdx) {
 				const g = grid[i];
 				xs.push(g.x0, g.x1);
 				ys.push(g.y0, g.y1);
+				mxs.push((g.x0 + g.x1) / 2);
+				mys.push((g.y0 + g.y1) / 2);
 			}
 		}
 		return {
 			horizontal: ys,
-			vertical: xs
+			vertical: xs,
+			middleHorizontal: mxs,
+			middleVertical: mys
 		}
 	}
 
@@ -202,6 +214,7 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
 			grid: grid
 		});
 	}
+
 	syncCellPins = (g: GridCell, width: number, height: number) => {
 		g.xl0 = this.getLockPos(g.x0, g.xp0, width);
 		g.yl0 = this.getLockPos(g.y0, g.yp0, height);
@@ -219,32 +232,39 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
 		this.syncGridSize(r.width, r.height);
 	}
 
+	watchSize = () => {
+		function frameHandler() {
+			const grid = this.refs['grid'] as Element;
+			const r = grid.getBoundingClientRect();
+			if (this.state.totalWidth != r.width || this.state.totalHeight != r.height) {
+				this.syncGridSize(r.width, r.height);
+			}			
+			requestAnimationFrame(frameHandler.bind(this));
+		}
+		requestAnimationFrame(frameHandler.bind(this));
+	}
+
 	componentDidMount = () => {
 		document.addEventListener('mousedown', this.onMouseDown);
 		document.addEventListener('mousemove', this.onMouseMove);
 		document.addEventListener('mouseup', this.onMouseUp);
-		window.addEventListener('resize', this.resize);
-		this.resize();
+		this.watchSize();
 		this.clipboard = new Clipboard(this.refs['copyLayout'] as Element);
 	}
 
 	componentDidUpdate = (prevProps: AbsoluteLayoutProps) => {
-		if (this.props.initialLayout && prevProps.initialLayout !== this.props.initialLayout) {
-			this.resize();
-		}
 	}
 
 	componentWillUnmount = () => {
 		document.removeEventListener('mousedown', this.onMouseDown);
 		document.removeEventListener('mousemove', this.onMouseMove);
 		document.removeEventListener('mouseup', this.onMouseUp);
-		window.removeEventListener('resize', this.resize);
 		this.clipboard.destroy();
 		this.clipboard = null;
 	}
 
 	selectElement = (idx: number, x: number, y: number, w: number, h: number) => {
-		console.log("Selected element " + idx);
+		console.log("Selected element " + idx, x, y, w, h);
 		this.setState({
 			elementIdx: idx,
 			elementStartPos: {
@@ -339,16 +359,6 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
 			dragging: false,
 			resizing: false
 		});
-	}
-
-	startResizing = (e: MouseEvent) => {
-		if (this.state.elementIdx >= 0) {
-			this.setState({
-				mouseStartPos: { x: e.clientX, y: e.clientY },
-				mouseCurrPos: { x: e.clientX, y: e.clientY },
-				resizing: true			
-			});
-		}
 	}
 
 	togglePinMode = (key: string, totalSize: number) => {
@@ -515,44 +525,46 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
 					opacity: this.state.dragging ? 0.8 : 1
 				});
 
-				if (idx === elementIdx) {
-					style = merge(style, {
-						width: '100%',
-						height: '100%'
-					});
-				} else {
-					style = merge(style, posStyle);
-				}
+				style = merge(style, posStyle);
 
 				const props = {
 					key: `cell/${idx}`,
 					style: style,
 					onMouseDown: (e: MouseEvent) => {
-						let t = e.target as HTMLElement;
-						if (this.state.elementIdx === idx) {
-							t = t.parentNode as HTMLElement;
-						}
+						let t = e.currentTarget as HTMLElement;
 
-						const mx = e.clientX - t.offsetLeft + document.documentElement.scrollLeft;
-						const my = e.clientY - t.offsetTop + document.documentElement.scrollTop;
+						const mx = e.pageX - t.offsetLeft;// + document.documentElement.scrollLeft;
+						const my = e.pageY - t.offsetTop;// + document.documentElement.scrollTop;
 
-						const resizing = mx > t.offsetWidth - 5 && my > t.offsetHeight - 5;
+						const resizing = mx > t.offsetWidth - RESIZE_SIZE + 3 && my > t.offsetHeight - RESIZE_SIZE + 3;
+
+						console.log("Mouse down", mx, my);
 
 						this.selectElement(idx, t.offsetLeft, t.offsetTop, t.offsetWidth, t.offsetHeight);
 						this.setState({
 							dragging: !resizing,
 							resizing: resizing
 						});
+
+						console.log("resize", resizing ? "1" : "0");
 					}
 				}
 
 				const el = React.cloneElement(g.element as React.ReactElement<any>, props,
-					 <span>{Math.round(g.x1 - g.x0)}, {Math.round(g.y1 - g.y0)}</span>);
-				return idx === elementIdx ?
-					<div key={`cellSel/${idx}`} style={posStyle}>
-						{el}
-					</div>
-					: el;
+					<div>
+						{elementIdx == idx &&
+					 	<div style={{
+							position: 'absolute',
+							left: 3, top: 3, padding: 2,
+							fontSize: 12,
+							backgroundColor: 'rgba(0, 0, 0, 0.3)',
+							color: 'white'}}>
+						 	{Math.round(g.x1 - g.x0)}, {Math.round(g.y1 - g.y0)}
+						</div>}
+						<div style={resizeHandleStyle}/>
+					 </div>
+				);
+				return el;
 			})}
 			{g && <HorzLine
 				onClick={() => this.togglePinMode('xp0', totalWidth)}
@@ -766,10 +778,10 @@ function strToLayout(s: string): GridLayout {
 	return grid;
 }
 
-const resizeHandle = {
+const resizeHandleStyle = {
     position: 'absolute',
-    width: 20,
-    height: 20,
+    width: RESIZE_SIZE,
+    height: RESIZE_SIZE,
     bottom: 0,
     right: 0,
     background: "url('data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBzdGFuZGFsb25lPSJubyI/Pg08IS0tIEdlbmVyYXRvcjogQWRvYmUgRmlyZXdvcmtzIENTNiwgRXhwb3J0IFNWRyBFeHRlbnNpb24gYnkgQWFyb24gQmVhbGwgKGh0dHA6Ly9maXJld29ya3MuYWJlYWxsLmNvbSkgLiBWZXJzaW9uOiAwLjYuMSAgLS0+DTwhRE9DVFlQRSBzdmcgUFVCTElDICItLy9XM0MvL0RURCBTVkcgMS4xLy9FTiIgImh0dHA6Ly93d3cudzMub3JnL0dyYXBoaWNzL1NWRy8xLjEvRFREL3N2ZzExLmR0ZCI+DTxzdmcgaWQ9IlVudGl0bGVkLVBhZ2UlMjAxIiB2aWV3Qm94PSIwIDAgNiA2IiBzdHlsZT0iYmFja2dyb3VuZC1jb2xvcjojZmZmZmZmMDAiIHZlcnNpb249IjEuMSINCXhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgeG1sbnM6eGxpbms9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkveGxpbmsiIHhtbDpzcGFjZT0icHJlc2VydmUiDQl4PSIwcHgiIHk9IjBweCIgd2lkdGg9IjZweCIgaGVpZ2h0PSI2cHgiDT4NCTxnIG9wYWNpdHk9IjAuMzAyIj4NCQk8cGF0aCBkPSJNIDYgNiBMIDAgNiBMIDAgNC4yIEwgNCA0LjIgTCA0LjIgNC4yIEwgNC4yIDAgTCA2IDAgTCA2IDYgTCA2IDYgWiIgZmlsbD0iIzAwMDAwMCIvPg0JPC9nPg08L3N2Zz4=')",
