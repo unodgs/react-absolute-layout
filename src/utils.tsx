@@ -67,7 +67,7 @@ export class HorzLine extends React.Component<LineProps, LineState> {
 					position: 'absolute',
 					width: width,
 					left: 0,
-					top: size / 2,
+					top: Math.floor(size / 2),
 				}}/>
 				{this.props.label && <div style={{
 					position: 'absolute',
@@ -133,7 +133,7 @@ export class VertLine extends React.Component<LineProps, LineState> {
 					position: 'absolute',
 					height: height,
 					top: 0,
-					left: size / 2
+					left: Math.floor(size / 2)
 				}}/>
 				{this.props.label && <div style={{
 					position: 'absolute',

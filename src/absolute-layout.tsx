@@ -67,6 +67,7 @@ type GridLayout = Array<GridCell>;
 export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, AbsoluteLayoutState> {
 
 	private clipboard = null;
+	private resizing = false;
 
 	constructor(props: AbsoluteLayoutProps) {
 		super(props);
@@ -198,14 +199,6 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
 						g.y0 += (g.y1 - y1);
 					}
 				}
-
-				if (g.x0 > g.x1) {
-					g.x1 = g.x0;
-				}
-
-				if (g.y0 > g.y1) {
-					g.y1 = g.y0;
-				}
 			});
 		}
 		this.setState({
@@ -336,8 +329,8 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
 			const fx = snapToGrid(gx1, snapPoints.vertical, this.state.colWidth);
 			const fy = snapToGrid(gy1, snapPoints.horizontal, this.state.rowHeight);
 
-			gi.x1 = fx.pos;
-			gi.y1 = fy.pos;
+			gi.x1 = Math.max(gi.x0, fx.pos);
+			gi.y1 = Math.max(gi.y0, fy.pos);
 		}
 
 		if (this.state.resizing || this.state.dragging) {
@@ -415,6 +408,11 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
 		} else {
 			return pos;
 		}
+	}
+
+	startResizing = () => {
+		console.log("resizing");
+		this.resizing = true;
 	}
 
 	render() {
@@ -521,8 +519,8 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
 				const gel: any = g.element;
 				let style = merge(gel.props.style, {
 					boxSizing: 'border-box',
-					// border: idx === elementIdx ? '2px dashed black' : 'none',
-					opacity: this.state.dragging ? 0.8 : 1
+					overflow: 'hidden',
+					opacity: idx === elementIdx && (this.state.dragging || this.state.resizing) ? 0.8 : 1
 				});
 
 				style = merge(style, posStyle);
@@ -531,22 +529,14 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
 					key: `cell/${idx}`,
 					style: style,
 					onMouseDown: (e: MouseEvent) => {
+						console.log("dragging");
 						let t = e.currentTarget as HTMLElement;
-
-						const mx = e.pageX - t.offsetLeft;// + document.documentElement.scrollLeft;
-						const my = e.pageY - t.offsetTop;// + document.documentElement.scrollTop;
-
-						const resizing = mx > t.offsetWidth - RESIZE_SIZE + 3 && my > t.offsetHeight - RESIZE_SIZE + 3;
-
-						console.log("Mouse down", mx, my);
-
-						this.selectElement(idx, t.offsetLeft, t.offsetTop, t.offsetWidth, t.offsetHeight);
+						this.selectElement(idx, t.offsetLeft, t.offsetTop, t.offsetWidth, t.offsetHeight);						
 						this.setState({
-							dragging: !resizing,
-							resizing: resizing
+							dragging: !this.resizing,
+							resizing: this.resizing
 						});
-
-						console.log("resize", resizing ? "1" : "0");
+						this.resizing = false;
 					}
 				}
 
@@ -555,13 +545,73 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
 						{elementIdx == idx &&
 					 	<div style={{
 							position: 'absolute',
-							left: 3, top: 3, padding: 2,
+							left: 5, top: 5, padding: 2,
 							fontSize: 12,
 							backgroundColor: 'rgba(0, 0, 0, 0.3)',
 							color: 'white'}}>
 						 	{Math.round(g.x1 - g.x0)}, {Math.round(g.y1 - g.y0)}
 						</div>}
-						<div style={resizeHandleStyle}/>
+						{g.xp0 !== PIN_NONE &&
+						<div style={{
+							position: 'absolute',
+							left: 0,
+							top: 'calc(50% - 10px)',
+							width: 3,
+							height: 20,
+							backgroundColor: 'rgba(0, 0, 0, 0.2)'
+						}}/>}
+						{g.xp1 !== PIN_NONE &&
+						<div style={{
+							position: 'absolute',
+							right: 0,
+							top: 'calc(50% - 10px)',
+							width: 3,
+							height: 20,
+							backgroundColor: 'rgba(0, 0, 0, 0.2)'
+						}}/>}
+						{g.yp0 !== PIN_NONE &&
+						<div style={{
+							position: 'absolute',
+							top: 0,
+							left: 'calc(50% - 10px)',
+							width: 20,
+							height: 3,
+							backgroundColor: 'rgba(0, 0, 0, 0.2)'
+						}}/>}
+						{g.yp1 !== PIN_NONE &&
+						<div style={{
+							position: 'absolute',
+							bottom: 0,
+							left: 'calc(50% - 10px)',
+							width: 20,
+							height: 3,
+							backgroundColor: 'rgba(0, 0, 0, 0.2)'
+						}}/>}
+						<div onMouseDown={this.startResizing} style={{
+							position: 'absolute',
+							bottom: 0,
+							right: 0,
+							width: 20,
+							height: 20,
+							cursor: 'nwse-resize'
+						}}>
+							<div style={{
+								position: 'absolute',
+								bottom: 0,
+								right: 0,
+								width: 8,
+								height: 3,
+								backgroundColor: 'rgba(0, 0, 0, 0.2)'
+							}}/>
+							<div style={{
+								position: 'absolute',
+								right: 0,
+								width: 3,
+								height: 5,
+								bottom: 3,
+								backgroundColor: 'rgba(0, 0, 0, 0.2)'
+							}}/>
+						</div>
 					 </div>
 				);
 				return el;
@@ -776,19 +826,4 @@ function strToLayout(s: string): GridLayout {
 		}
 	}
 	return grid;
-}
-
-const resizeHandleStyle = {
-    position: 'absolute',
-    width: RESIZE_SIZE,
-    height: RESIZE_SIZE,
-    bottom: 0,
-    right: 0,
-    background: "url('data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBzdGFuZGFsb25lPSJubyI/Pg08IS0tIEdlbmVyYXRvcjogQWRvYmUgRmlyZXdvcmtzIENTNiwgRXhwb3J0IFNWRyBFeHRlbnNpb24gYnkgQWFyb24gQmVhbGwgKGh0dHA6Ly9maXJld29ya3MuYWJlYWxsLmNvbSkgLiBWZXJzaW9uOiAwLjYuMSAgLS0+DTwhRE9DVFlQRSBzdmcgUFVCTElDICItLy9XM0MvL0RURCBTVkcgMS4xLy9FTiIgImh0dHA6Ly93d3cudzMub3JnL0dyYXBoaWNzL1NWRy8xLjEvRFREL3N2ZzExLmR0ZCI+DTxzdmcgaWQ9IlVudGl0bGVkLVBhZ2UlMjAxIiB2aWV3Qm94PSIwIDAgNiA2IiBzdHlsZT0iYmFja2dyb3VuZC1jb2xvcjojZmZmZmZmMDAiIHZlcnNpb249IjEuMSINCXhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgeG1sbnM6eGxpbms9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkveGxpbmsiIHhtbDpzcGFjZT0icHJlc2VydmUiDQl4PSIwcHgiIHk9IjBweCIgd2lkdGg9IjZweCIgaGVpZ2h0PSI2cHgiDT4NCTxnIG9wYWNpdHk9IjAuMzAyIj4NCQk8cGF0aCBkPSJNIDYgNiBMIDAgNiBMIDAgNC4yIEwgNCA0LjIgTCA0LjIgNC4yIEwgNC4yIDAgTCA2IDAgTCA2IDYgTCA2IDYgWiIgZmlsbD0iIzAwMDAwMCIvPg0JPC9nPg08L3N2Zz4=')",
-    backgroundPosition: "bottom right",
-    padding: "0 3px 3px 0",
-    backgroundRepeat: "no-repeat",
-    backgroundOrigin: "content-box",
-    boxSizing: "border-box",
-    cursor: "se-resize"
 }
