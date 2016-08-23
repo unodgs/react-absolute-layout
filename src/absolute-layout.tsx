@@ -20,8 +20,10 @@ type Size = {
 
 interface AbsoluteLayoutProps extends React.Props<AbsoluteLayoutProps> {
 	children?: Array<React.ReactChild>;
-	columns: number;
-	rows: number;
+	colWidth?: number;
+	rowHeight?: number;
+	showGrid?: boolean;
+	snapToGrid?: boolean;
 	width: number | string;
 	height: number | string;
 	initialLayout?: string;
@@ -44,7 +46,9 @@ interface AbsoluteLayoutState {
 		horizontal: number[],
 		vertical: number[],
 		middleHorizontal: number[],
-		middleVertical: number[]
+		middleVertical: number[],
+		allHorizontal: number[],
+		allVertical: number[]
 	};
 	editMode?: boolean;
 }
@@ -69,10 +73,19 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
 	private clipboard = null;
 	private resizing = false;
 
+	public static defaultProps: AbsoluteLayoutProps = {
+		colWidth: 50,
+		rowHeight: 50,
+		width: '100%',
+		height: '100%',
+		showGrid: true,
+		snapToGrid: true
+	}
+
 	constructor(props: AbsoluteLayoutProps) {
 		super(props);
-		const colWidth = 40;
-		const rowHeight = 40;
+		const colWidth = props.colWidth;
+		const rowHeight = props.rowHeight;
 		let layout = LZString.decompressFromBase64(this.props.initialLayout);
 		if (!layout) {
 			layout = this.props.initialLayout;
@@ -81,10 +94,8 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
 			? this.updateLayoutChildren(strToLayout(layout), props.children)
 			: this.getInitialGrid(props.children, colWidth, rowHeight);
 
-		const snapPoints = this.getSnapPoints(grid, -1);
 		this.state = {
 			grid: grid,
-			snapPoints: snapPoints,
 			dragging: false,
 			mouseStartPos: null,
 			mouseCurrPos: null,
@@ -93,8 +104,8 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
 			elementIdx: -1,
 			totalWidth: 0,
 			totalHeight: 0,
-			colWidth: 40,
-			rowHeight: 40,
+			colWidth: colWidth,
+			rowHeight: rowHeight,
 			editMode: true
 		}
 	}
@@ -145,11 +156,14 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
 				mys.push((g.y0 + g.y1) / 2);
 			}
 		}
+		
 		return {
 			horizontal: ys,
 			vertical: xs,
-			middleHorizontal: mxs,
-			middleVertical: mys
+			middleHorizontal: mys,
+			middleVertical: mxs,
+			allHorizontal: ys.concat(mys),
+			allVertical: xs.concat(mxs)
 		}
 	}
 
@@ -200,12 +214,16 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
 					}
 				}
 			});
+			
+			const snapPoints = this.getSnapPoints(grid, -1);
+			
+			this.setState({
+				totalWidth: width,
+				totalHeight: height,
+				grid: grid,
+				snapPoints: snapPoints 
+			});
 		}
-		this.setState({
-			totalWidth: width,
-			totalHeight: height,
-			grid: grid
-		});
 	}
 
 	syncCellPins = (g: GridCell, width: number, height: number) => {
@@ -287,32 +305,45 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
 		const gi = grid[idx];
 		const dx = this.state.mouseStartPos ? e.clientX - this.state.mouseStartPos.x : 0;
 		const dy = this.state.mouseStartPos ? e.clientY - this.state.mouseStartPos.y : 0;
-		const snapPoints = this.getSnapPoints(grid, idx);
+		const snapPoints = this.state.snapPoints;
+
+		const colWidth = this.props.snapToGrid ? this.state.colWidth : 0;
+		const rowHeight = this.props.snapToGrid ? this.state.rowHeight : 0;
 		
 		if (this.state.dragging) {			
 			const gx0 = this.state.elementStartPos.x + dx;
 			const gx1 = this.state.elementEndPos.x + dx;
 
-			let x0 = snapToGrid(gx0, snapPoints.vertical, this.state.colWidth);
+			let x0 = snapToGrid(gx0, snapPoints.vertical, colWidth);
 			let fx = x0.pos;
 
 			if (!x0.snapped) {
-				let x1 = snapToGrid(gx1, snapPoints.vertical, this.state.colWidth);
+				let x1 = snapToGrid(gx1, snapPoints.vertical, colWidth);
 				if (x1.snapped) {
 					fx = fx + (x1.pos - gx1);
+				} else {
+					let x2 = snapToGrid((gx0 + gx1) / 2, snapPoints.middleVertical);
+					if (x2.snapped) {
+						fx = x2.pos - Math.abs(gx1 - gx0) / 2;
+					}
 				}
 			}
 
 			const gy0 = this.state.elementStartPos.y + dy;
 			const gy1 = this.state.elementEndPos.y + dy;
 
-			const y0 = snapToGrid(gy0, snapPoints.horizontal, this.state.rowHeight);
+			const y0 = snapToGrid(gy0, snapPoints.horizontal, rowHeight);
 			let fy = y0.pos;
 
 			if (!y0.snapped) {
-				let y1 = snapToGrid(gy1, snapPoints.horizontal, this.state.rowHeight);
+				let y1 = snapToGrid(gy1, snapPoints.horizontal, rowHeight);
 				if (y1.snapped) {
 					fy = fy + (y1.pos - gy1); 
+				} else {
+					let y2 = snapToGrid((gy0 + gy1) / 2, snapPoints.middleHorizontal);
+					if (y2.snapped) {
+						fy = y2.pos - Math.abs(gy1 - gy0) / 2;
+					}
 				}
 			}
 
@@ -326,8 +357,8 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
 			const gx1 = this.state.elementEndPos.x + dx;
 			const gy1 = this.state.elementEndPos.y + dy;  
 
-			const fx = snapToGrid(gx1, snapPoints.vertical, this.state.colWidth);
-			const fy = snapToGrid(gy1, snapPoints.horizontal, this.state.rowHeight);
+			const fx = snapToGrid(gx1, snapPoints.allVertical, colWidth);
+			const fy = snapToGrid(gy1, snapPoints.allHorizontal, rowHeight);
 
 			gi.x1 = Math.max(gi.x0, fx.pos);
 			gi.y1 = Math.max(gi.y0, fy.pos);
@@ -337,20 +368,21 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
 			this.syncCellPins(gi, this.state.totalWidth, this.state.totalHeight);
 			this.setState({
 				mouseCurrPos: { x: e.clientX, y: e.clientY },
-				grid: grid,
-				snapPoints: snapPoints
+				grid: grid
 			});
 		}
 	}
 
 	onMouseUp = (e: MouseEvent) => {
+		const snapPoints = this.getSnapPoints(this.state.grid, -1);
 		this.setState({
 			mouseStartPos: null,
 			mouseCurrPos: null,
 			elementStartPos: null,
 			elementEndPos: null,
 			dragging: false,
-			resizing: false
+			resizing: false,
+			snapPoints: snapPoints
 		});
 	}
 
@@ -411,7 +443,6 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
 	}
 
 	startResizing = () => {
-		console.log("resizing");
 		this.resizing = true;
 	}
 
@@ -446,9 +477,11 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
 
 			const fx0 = snapToGrid(g.x0, snapPoints.vertical, this.state.colWidth);
 			const fx1 = snapToGrid(g.x1, snapPoints.vertical, this.state.colWidth);
+			const fx2 = snapToGrid((g.x0 + g.x1) / 2, snapPoints.middleVertical, this.state.colWidth);
 			const fy0 = snapToGrid(g.y0, snapPoints.horizontal, this.state.rowHeight);
 			const fy1 = snapToGrid(g.y1, snapPoints.horizontal, this.state.rowHeight);
-			
+			const fy2 = snapToGrid((g.y0 + g.y1) / 2, snapPoints.middleHorizontal, this.state.rowHeight);
+						
 			if (fx0.snapPoint >= 0) {
 				colLines.push(
 					<VertLine
@@ -467,6 +500,15 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
 				);
 			}
 
+			if (fx2.snapPoint >= 0) {
+				colLines.push(
+					<VertLine
+						key={`column-snap-vert-line-2`}
+						pos={fx2.pos}
+						color="rgba(255, 0, 0, 0.17)"/>
+				);
+			}
+
 			if (fy0.snapPoint >= 0) {
 				rowLines.push(
 					<HorzLine
@@ -481,6 +523,15 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
 					<HorzLine
 						key={`column-snap-horz-line-1`}
 						pos={fy1.pos}
+						color="rgba(255, 0, 0, 0.17)"/>
+				);
+			}
+
+			if (fy2.snapPoint >= 0) {
+				rowLines.push(
+					<HorzLine
+						key={`column-snap-horz-line-2`}
+						pos={fy2.pos}
 						color="rgba(255, 0, 0, 0.17)"/>
 				);
 			}
@@ -529,7 +580,11 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
 					key: `cell/${idx}`,
 					style: style,
 					onMouseDown: (e: MouseEvent) => {
-						console.log("dragging");
+						if (this.resizing) {
+							console.log("resizing");
+						} else {
+							console.log("dragging");
+						}
 						let t = e.currentTarget as HTMLElement;
 						this.selectElement(idx, t.offsetLeft, t.offsetTop, t.offsetWidth, t.offsetHeight);						
 						this.setState({
@@ -694,7 +749,7 @@ type SnapPoint = {
 	snapPoint: number
 }
 
-function snapToGrid(pos: number, snapPoints: number[], cellSize: number): SnapPoint {
+function snapToGrid(pos: number, snapPoints: number[], cellSize: number = 0): SnapPoint {
 	const minDist = 3;
 	let closestSnapPoint = -1;
 	
@@ -712,7 +767,7 @@ function snapToGrid(pos: number, snapPoints: number[], cellSize: number): SnapPo
 		outPos.pos = Math.round(pos / closestSnapPoint) * closestSnapPoint;
 		outPos.snapPoint = closestSnapPoint;
 		outPos.snapped = true;
-	} else {
+	} else if (cellSize > 0) {
 		const cellPos = Math.round(pos / cellSize) * cellSize;
 		if (Math.abs(pos - cellPos) <= minDist) {
 			outPos.pos = cellPos;
