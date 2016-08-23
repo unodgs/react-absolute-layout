@@ -159,3 +159,37 @@ function getBackgroundColor(highlighted: boolean, color: string): string {
 		return 'rgba(0, 0, 0, 0)';
 	}
 }
+
+export class Switch extends React.Component<{ round: boolean, onChange?: (boolean) => void }, any> {
+	toggleSwitch = () => {
+		const cl = (this.refs['switch'] as HTMLElement).classList;
+		if (cl.contains("on")) {
+			cl.remove("on");
+			cl.add("off");
+			if (this.props.onChange) {
+				this.props.onChange(false);
+			}
+		} else {
+			cl.remove("off");
+			cl.add("on");
+			if (this.props.onChange) {
+				this.props.onChange(true);
+			}
+		}
+	}
+
+	render() {
+		return this.props.round
+			?
+			<div ref="switch" className="switch round off" onClick={this.toggleSwitch}>
+				<div className="toggle"></div>
+			</div>
+			:
+			<div ref="switch" className="switch off" onClick={this.toggleSwitch}>
+				<div className="toggle"></div>
+				<span className="on">ON</span>
+				<span className="off">OFF</span>
+			</div>
+			;
+	}
+}
