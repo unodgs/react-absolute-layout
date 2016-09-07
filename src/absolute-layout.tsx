@@ -24,10 +24,13 @@ interface AbsoluteLayoutProps extends React.Props<AbsoluteLayoutProps> {
 	rowHeight?: number;
 	showGrid?: boolean;
 	snapToGrid?: boolean;
-	width: number | string;
-	height: number | string;
-	initialLayout?: string;
+	width?: number | string;
+	height?: number | string;
+	layout?: string | GridLayout;
 	editing?: boolean;
+	name: string;
+	storage?: any;
+	onLayoutUpdate?: (layout: GridLayout) => void;
 }
 
 interface AbsoluteLayoutState {
@@ -65,7 +68,7 @@ interface GridCell {
 	y0: number; yp0: number; yl0: number;
 	x1: number; xp1: number; xl1: number;
 	y1: number; yp1: number; yl1: number;
-	element: React.ReactChild;
+	element: string | number;
 };
 
 type GridLayout = Array<GridCell>;
@@ -82,19 +85,25 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
 		height: '100%',
 		showGrid: true,
 		snapToGrid: true,
-		editing: false
+		editing: false,
+		name: "default"
 	}
 
 	constructor(props: AbsoluteLayoutProps) {
 		super(props);
 		const colWidth = props.colWidth;
 		const rowHeight = props.rowHeight;
-		let layout = LZString.decompressFromBase64(this.props.initialLayout);
+		let layout: any = LZString.decompressFromBase64(props.layout);
 		if (!layout) {
-			layout = this.props.initialLayout;
+			layout = this.props.layout;
+		}
+		if (!layout) {
+			layout = JSON.parse(localStorage.getItem(props.name));
+		} else {
+			layout = strToLayout(layout);
 		}
 		const grid = layout
-			? this.updateLayoutChildren(strToLayout(layout), props.children)
+			? this.updateLayoutChildren(layout, props.children)
 			: this.getInitialGrid(props.children, colWidth, rowHeight);
 
 		this.state = {
@@ -116,13 +125,29 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
 	
 	updateLayoutChildren(grid: GridLayout, children: React.ReactChild[]): GridLayout {
 		for (let i = 0; i < children.length; i++) {
-			if (i < grid.length) {
-				grid[i].element = children[i];
+			const child = children[i];
+			if (child.key) {
+				const g = grid.find(g => g.element === child.key);
+				if (!g) {
+					if (i < grid.length) {
+						grid[i].element = child.key;
+					} else {
+						const cell = getInitialGridCell();
+						cell.element = child.key;
+						grid.push(cell);
+					}
+				}
 			} else {
-				const cell = getInitialGridCell();
-				cell.element = children[i];
-				grid.push(cell);
+				if (i < grid.length) {
+					grid[i].element = i;
+				} else {
+					const cell = getInitialGridCell();
+					cell.element = el;
+					grid.push(cell);
+				}
+
 			}
+			const el = children[i].key || i;
 		}
 		return grid;
 	}
@@ -227,6 +252,7 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
 				grid: grid,
 				snapPoints: snapPoints 
 			});
+			this.saveLayout(grid);
 		}
 	}
 
@@ -374,6 +400,7 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
 				mouseCurrPos: { x: e.clientX, y: e.clientY },
 				grid: grid
 			});
+			this.saveLayout(grid);
 		}
 	}
 
@@ -416,6 +443,7 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
 		this.setState({
 			grid: grid
 		});
+		this.saveLayout(grid);
 	}
 
 	getHighlightColor(pinMode: number): string {
@@ -469,6 +497,19 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
 			editing: e,
 			elementIdx: -1
 		});
+	}
+
+	saveLayout = (grid: GridLayout) => {
+		const ng = grid.map(g => ({
+			x0: g.x0, xl0: g.xl0, xp0: g.xp0,
+			y0: g.y0, yl0: g.yl0, yp0: g.yp0,
+			x1: g.x1, xl1: g.xl1, xp1: g.xp1,
+			y1: g.y1, yl1: g.yl1, yp1: g.yp1
+		}));
+		if (this.props.onLayoutUpdate) {
+			this.props.onLayoutUpdate(grid);
+		}
+		localStorage.setItem(this.props.name, JSON.stringify(ng));
 	}
 
 	render() {

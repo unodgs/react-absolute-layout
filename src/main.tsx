@@ -6,10 +6,10 @@ import { AbsoluteLayout } from "./absolute-layout";
                                   
 class App extends React.Component<{}, {}> {
 	render() {
-		return <div style={{position: 'absolute', right: 50, left: '35%'}}>
-			<AbsoluteLayout height={500} snapToGrid={false} editing={true}
-				initialLayout="EwDgDAggzAbGByBWMJ7ACwQNToQRmAQyLAS1HznnXDV3iymAAVgZF4oB2ZqdDrEA">
-				<div style={{backgroundColor: 'red'}}/>
+		// initialLayout="EwDgDAggzAbGByBWMJ7ACwQNToQRmAQyLAS1HznnXDV3iymAAVgZF4oB2ZqdDrEA"			
+		return <div style={{position: 'absolute', right: 50, left: 30}}>
+			<AbsoluteLayout height={500} snapToGrid={false} editing={true} name="test">
+				<div style={{backgroundColor: 'red'}} key="red-box"/>
 				<div style={{backgroundColor: 'green'}}/>
 				<div style={{backgroundColor: 'yellow'}}/>
 				<div style={{backgroundColor: 'blue'}}/>
