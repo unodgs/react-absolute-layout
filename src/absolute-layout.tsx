@@ -28,6 +28,7 @@ interface AbsoluteLayoutProps extends React.Props<AbsoluteLayoutProps> {
 	height?: number | string;
 	layout?: string | GridLayout;
 	editing?: boolean;
+	toolbar?: boolean;
 	name: string;
 	storage?: any;
 	onLayoutUpdate?: (layout: GridLayout) => void;
@@ -87,6 +88,7 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
 		showGrid: true,
 		snapToGrid: true,
 		editing: false,
+		toolbar: true,
 		name: "default"
 	}
 
@@ -741,7 +743,7 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
 					height: `${g.y1 - g.y0}px`,
 					overflow: 'hidden'
 				};
-				
+
 				const gel = this.props.children[g.idx] as React.ReactElement<any>;
 				
 				const props = {
@@ -821,7 +823,7 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
 
 		let gridBar = null;
 
-		if (this.props.editing) {
+		if (this.props.editing && this.props.toolbar) {
 			let info = `GRID: [${Math.round(totalWidth)}, ${Math.round(totalHeight)}]`;
 			if (elementIdx >= 0) {
 				const elementKey = (this.props.children[g.idx] as React.ReactElement<any>).key || 'NO-KEY';
