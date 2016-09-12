@@ -68,7 +68,8 @@ interface GridCell {
 	y0: number; yp0: number; yl0: number;
 	x1: number; xp1: number; xl1: number;
 	y1: number; yp1: number; yl1: number;
-	element: string | number;
+	key: string | number;
+	idx: number;
 };
 
 type GridLayout = Array<GridCell>;
@@ -93,7 +94,7 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
 		super(props);
 		const colWidth = props.colWidth;
 		const rowHeight = props.rowHeight;
-		let layout: any = LZString.decompressFromBase64(props.layout);
+		let layout: any = LZString.decompressFromBase64(props.layout as string);
 		if (!layout) {
 			layout = this.props.layout;
 		}
@@ -103,8 +104,12 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
 			layout = strToLayout(layout);
 		}
 		const grid = layout
-			? this.updateLayoutChildren(layout, props.children)
+			? this.syncLayoutChildren(layout, props.children)
 			: this.getInitialGrid(props.children, colWidth, rowHeight);
+
+		if (!layout) {
+			this.saveLayout(grid);
+		}
 
 		this.state = {
 			grid: grid,
@@ -123,33 +128,19 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
 		}
 	}
 	
-	updateLayoutChildren(grid: GridLayout, children: React.ReactChild[]): GridLayout {
-		for (let i = 0; i < children.length; i++) {
-			const child = children[i];
-			if (child.key) {
-				const g = grid.find(g => g.element === child.key);
-				if (!g) {
-					if (i < grid.length) {
-						grid[i].element = child.key;
-					} else {
-						const cell = getInitialGridCell();
-						cell.element = child.key;
-						grid.push(cell);
-					}
-				}
-			} else {
-				if (i < grid.length) {
-					grid[i].element = i;
-				} else {
-					const cell = getInitialGridCell();
-					cell.element = el;
-					grid.push(cell);
-				}
+	syncLayoutChildren(grid: GridLayout, children: React.ReactChild[]): GridLayout {
+		const newGrid: GridLayout = [];
 
-			}
-			const el = children[i].key || i;
+		for (let i = 0; i < children.length; i++) {
+			const child = children[i] as React.ReactElement<any>;
+			const key = child.key ? child.key : i;
+			const g = grid.find(g => g.key === key);		
+			const ng = g ? g : getInitialGridCell();
+			ng.key = key; 
+			ng.idx = i;
+			newGrid.push(ng);
 		}
-		return grid;
+		return newGrid;
 	}
 
 	getInitialGrid(children: React.ReactChild[], colWidth: number, rowHeight: number) {
@@ -166,7 +157,8 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
 			yp0: PIN_NONE,
 			xp1: PIN_NONE,
 			yp1: PIN_NONE,
-			element: el
+			key: el.key ? el.key : idx,
+			idx: idx
 		} as GridCell))
 	}
 
@@ -294,6 +286,14 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
 	}
 
 	componentDidUpdate = (prevProps: AbsoluteLayoutProps) => {
+		if (prevProps.children && this.props.children) {
+			const grid = this.syncLayoutChildren(this.state.grid, this.props.children);
+			if (!this.equalLayout(this.state.grid, grid)) {
+				this.setState({
+					grid: grid 
+				});
+			}
+		}
 	}
 
 	componentWillUnmount = () => {
@@ -504,12 +504,44 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
 			x0: g.x0, xl0: g.xl0, xp0: g.xp0,
 			y0: g.y0, yl0: g.yl0, yp0: g.yp0,
 			x1: g.x1, xl1: g.xl1, xp1: g.xp1,
-			y1: g.y1, yl1: g.yl1, yp1: g.yp1
+			y1: g.y1, yl1: g.yl1, yp1: g.yp1,
+			key: g.key
 		}));
 		if (this.props.onLayoutUpdate) {
 			this.props.onLayoutUpdate(grid);
 		}
 		localStorage.setItem(this.props.name, JSON.stringify(ng));
+	}
+
+	equalLayout = (grid0: GridLayout, grid1: GridLayout) => {
+		if (grid0.length !== grid1.length) {
+			return false;
+		}
+
+		for (let i = 0; i < grid0.length; i++) {
+			const g0 = grid0[i];
+			const g1 = grid1[i];
+
+			if (
+				g0.x0 !== g1.x0 ||
+				g0.xl0 !== g1.xl0 ||
+				g0.xp0 !== g1.xp0 ||
+				g0.x1 !== g1.x1 ||
+				g0.xl1 !== g1.xl1 ||
+				g0.xp1 !== g1.xp1 ||
+				g0.y0 !== g1.y0 ||
+				g0.yl0 !== g1.yl0 ||
+				g0.yp0 !== g1.yp0 ||
+				g0.y1 !== g1.y1 ||
+				g0.yl1 !== g1.yl1 ||
+				g0.yp1 !== g1.yp1 ||
+				g0.key !== g1.key
+			) {
+				return false;
+			}
+		}
+
+		return true;
 	}
 
 	render() {
@@ -599,7 +631,8 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
 					height: `${g.y1 - g.y0}px`
 				};
 				
-				const gel = g.element as React.ReactElement<any>;
+				const gel = this.props.children[g.idx] as React.ReactElement<any>;
+
 				let style = merge(gel.props.style, {
 					boxSizing: 'border-box',
 					overflow: 'hidden',
@@ -609,7 +642,7 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
 				style = merge(style, posStyle);
 
 				const props = {
-					key: `cell/${idx}`,
+					key: `cell/${g.key}`,
 					style: style,
 					onMouseDown: (e: MouseEvent) => {
 						let t = e.currentTarget as HTMLElement;
@@ -622,7 +655,7 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
 					}
 				}
 
-				const el = React.cloneElement(g.element as React.ReactElement<any>, props,
+				const el = React.cloneElement(gel, props,
 					<div>
 						{elementIdx == idx &&
 						<div style={{
@@ -708,15 +741,15 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
 					height: `${g.y1 - g.y0}px`,
 					overflow: 'hidden'
 				};
-
-				const gel = g.element as React.ReactElement<any>;
+				
+				const gel = this.props.children[g.idx] as React.ReactElement<any>;
 				
 				const props = {
 					key: `cell/${idx}`,
 					style: merge(style, gel.props.style)
 				}
 
-				return React.cloneElement(g.element as React.ReactElement<any>, props);
+				return React.cloneElement(gel, props);
 			});
 		}
 
@@ -791,7 +824,7 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
 		if (this.props.editing) {
 			let info = `GRID: [${Math.round(totalWidth)}, ${Math.round(totalHeight)}]`;
 			if (elementIdx >= 0) {
-				const elementKey = (g.element as React.ReactElement<any>).key || 'NO-KEY';
+				const elementKey = (this.props.children[g.idx] as React.ReactElement<any>).key || 'NO-KEY';
 				const x = Math.round(g.x0);
 				const y = Math.round(g.y0);
 				const w = Math.round(g.x1 - g.x0);
@@ -937,7 +970,8 @@ function getInitialGridCell(): GridCell {
 		y0: 0, yp0: PIN_NONE, yl0: -1,
 		x1: 0, xp1: PIN_NONE, xl1: -1,
 		y1: 0, yp1: PIN_NONE, yl1: -1,
-		element: null
+		key: null,
+		idx: -1
 	}
 }
 
