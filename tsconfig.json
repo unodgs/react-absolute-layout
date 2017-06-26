@@ -1,20 +1,22 @@
 {
     "compilerOptions": {
         "jsx": "react",
-        "module": "system",
-        "moduleResolution": "classic",
+        "module": "commonjs",
         "declaration": false,
-        "target": "es6",
+        "target": "es5",
         "experimentalDecorators": true,
         "noImplicitReturns": true,
+        "allowSyntheticDefaultImports": true,
         "outDir": "./build",
         "sourceMap": true,
         "allowJs": false,
-        "pretty": true
+        "pretty": true,
+        "lib": [
+            "dom", "es6"
+        ]
     },
     "include": [
-        "./src/**/*",
-        "./typings/**/*"
+        "./src/**/*"
     ],
     "exclude": [
         "node_modules",

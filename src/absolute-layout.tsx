@@ -1,9 +1,8 @@
-/// <reference path="../typings/index.d.ts" />
 import * as React from "react";
 import * as ReactDOM from "react-dom";
-import LZString from 'lz-string';
-import objectAssign from 'object-assign';
-import Clipboard from 'clipboard';
+import * as LZString from 'lz-string';
+import * as objectAssign from 'object-assign';
+import * as Clipboard from 'clipboard';
 import { HorzLine, VertLine, Switch } from "./utils";
 
 const RESIZE_SIZE = 20;
@@ -19,7 +18,7 @@ type Size = {
 }
 
 interface AbsoluteLayoutProps extends React.Props<AbsoluteLayoutProps> {
-	children?: Array<React.ReactChild>;
+	children?: Array<React.ReactElement<any>>;
 	colWidth?: number;
 	rowHeight?: number;
 	showGrid?: boolean;
@@ -145,7 +144,7 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
 		return newGrid;
 	}
 
-	getInitialGrid(children: React.ReactChild[], colWidth: number, rowHeight: number) {
+	getInitialGrid(children: React.ReactElement<any>[], colWidth: number, rowHeight: number) {
 		return children.map((el, idx: number) => ({
 			x0: colWidth,
 			y0: rowHeight + (idx * rowHeight * 2),
@@ -279,7 +278,7 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
 		requestAnimationFrame(frameHandler.bind(this));
 	}
 
-	componentDidMount = () => {
+	componentDidMount() {
 		document.addEventListener('mousedown', this.onMouseDown);
 		document.addEventListener('mousemove', this.onMouseMove);
 		document.addEventListener('mouseup', this.onMouseUp);
@@ -287,7 +286,7 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
 		this.clipboard = new Clipboard(this.refs['copyLayout'] as Element);
 	}
 
-	componentDidUpdate = (prevProps: AbsoluteLayoutProps) => {
+	componentDidUpdate(prevProps: AbsoluteLayoutProps) {
 		if (prevProps.children && this.props.children) {
 			const grid = this.syncLayoutChildren(this.state.grid, this.props.children);
 			if (!this.equalLayout(this.state.grid, grid)) {
@@ -298,7 +297,7 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
 		}
 	}
 
-	componentWillUnmount = () => {
+	componentWillUnmount() {
 		document.removeEventListener('mousedown', this.onMouseDown);
 		document.removeEventListener('mousemove', this.onMouseMove);
 		document.removeEventListener('mouseup', this.onMouseUp);
@@ -546,7 +545,7 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
 		return true;
 	}
 
-	render() {
+	render(): React.ReactElement<any> {
 		const totalWidth = this.state.totalWidth;
 		const totalHeight = this.state.totalHeight;
 
@@ -647,6 +646,7 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
 					key: `cell/${g.key}`,
 					style: style,
 					onMouseDown: (e: MouseEvent) => {
+						e.stopPropagation();
 						let t = e.currentTarget as HTMLElement;
 						this.selectElement(idx, t.offsetLeft, t.offsetTop, t.offsetWidth, t.offsetHeight);						
 						this.setState({

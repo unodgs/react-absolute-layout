@@ -45,7 +45,7 @@ export class HorzLine extends React.Component<LineProps, LineState> {
 	render() {
 		const width = (this.props.from !== undefined && this.props.to !== undefined) ? (this.props.to - this.props.from) : '100%';
 		const left = this.props.from !== undefined ? this.props.from : 0;
-		const zIndex = this.props.onTop ? '1000' : 'auto';
+		const zIndex = this.props.onTop ? 1000 : 'auto';
 		const size = this.props.size || 1;
 
 		return (
@@ -111,7 +111,7 @@ export class VertLine extends React.Component<LineProps, LineState> {
 	render() {
 		const height = (this.props.from !== undefined && this.props.to !== undefined) ? (this.props.to - this.props.from) : '100%';
 		const top = this.props.from !== undefined ? this.props.from : 0;
-		const zIndex = this.props.onTop ? '1000' : 'auto';
+		const zIndex = this.props.onTop ? 1000 : 'auto';
 		const size = this.props.size || 1;
 
 		return (
