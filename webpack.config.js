@@ -14,6 +14,7 @@ module.exports = [{
         path: join(__dirname, 'bundle'),
         publicPath: '/',
     },
+    devtool: "source-map",
     plugins: [
         new HtmlPlugin({
             template: './index.html',
@@ -34,6 +35,10 @@ module.exports = [{
             test: /\.ts(x?)$/,
             loader: 'awesome-typescript-loader',
             exclude: /node_modules/
+        }, {
+            enforce: "pre",
+            test: /\.js$/,
+            loader: "source-map-loader"
         }],
     },
     // externals: {

@@ -1,5 +1,4 @@
 import * as React from "react";
-import * as ReactDOM from "react-dom";
 
 interface LineProps {
 	pos: number;
@@ -21,7 +20,7 @@ interface LineState {
 export class HorzLine extends React.Component<LineProps, LineState> {
 	static defaultProps = {
 		color: 'black'
-	}
+    };
 
 	constructor(props: LineProps) {
 		super(props);
@@ -36,44 +35,54 @@ export class HorzLine extends React.Component<LineProps, LineState> {
 		});
 	}
 
-	onClick = () => {
+    onClick = (e) => {
+        e.stopPropagation();
 		if (this.props.onClick) {
 			this.props.onClick();
 		}
-	}
+    };
+
+    onMouseDown = (e) => {
+        e.stopPropagation();
+    };
 
 	render() {
-		const width = (this.props.from !== undefined && this.props.to !== undefined) ? (this.props.to - this.props.from) : '100%';
+        const width = (this.props.from !== undefined && this.props.to !== undefined)
+			? Math.max(0, this.props.to - this.props.from)
+			: '100%';
 		const left = this.props.from !== undefined ? this.props.from : 0;
-		const zIndex = this.props.onTop ? 1000 : 'auto';
+        const zIndex = this.props.onTop ? 1000 : undefined;
 		const size = this.props.size || 1;
 
 		return (
-			<div style={{
-				width: width,
-				backgroundColor: getBackgroundColor(this.state.highlighted, this.props.highlightColor),
-				height: size,
-				position: 'absolute',
-				top: this.props.pos - size / 2,
-				left: left,
-				zIndex: zIndex
-				}}
-				onMouseEnter={() => this.highlightLine(true)}
-				onMouseLeave={() => this.highlightLine(false)}
-				onClick={this.onClick}>
+            <div className="horz-line" onMouseDown={this.onMouseDown}>
 				<div style={{
-					height: 1,
-					backgroundColor: this.props.color,
-					position: 'absolute',
 					width: width,
-					left: 0,
-					top: Math.floor(size / 2),
-				}}/>
+					backgroundColor: getBackgroundColor(this.state.highlighted, this.props.highlightColor),
+					height: size,
+					position: 'absolute',
+					top: this.props.pos - size / 2,
+					left: left,
+					zIndex: zIndex ? zIndex + 1 : undefined
+					}}
+					onMouseEnter={() => this.highlightLine(true)}
+					onMouseLeave={() => this.highlightLine(false)}
+					onClick={this.onClick}>
+					<div style={{
+						height: 1,
+						backgroundColor: this.props.color,
+						position: 'absolute',
+						width: width,
+						left: 0,
+						top: Math.floor(size / 2),
+					}}/>
+				</div>
 				{this.props.label && <div style={{
 					position: 'absolute',
 					width: width,
-					left: 0,
-					top: -(size / 2 + 12),
+					left: left,
+					top: this.props.pos - size / 2 - 15,
+					zIndex: zIndex,
 					fontSize: 12,
 					display: 'flex',
 					alignItems: 'center',
@@ -87,7 +96,7 @@ export class HorzLine extends React.Component<LineProps, LineState> {
 export class VertLine extends React.Component<LineProps, LineState> {
 	static defaultProps = {
 		color: 'black'
-	}
+    };
 
 	constructor(props: LineProps) {
 		super(props);
@@ -102,44 +111,53 @@ export class VertLine extends React.Component<LineProps, LineState> {
 		});
 	}
 
-	onClick = () => {
+    onClick = (e) => {
+        e.stopPropagation();
 		if (this.props.onClick) {
 			this.props.onClick();
 		}
-	}
+    };
 
+    onMouseDown = (e) => {
+        e.stopPropagation();
+    };
+	
 	render() {
-		const height = (this.props.from !== undefined && this.props.to !== undefined) ? (this.props.to - this.props.from) : '100%';
+        const height = (this.props.from !== undefined && this.props.to !== undefined)
+			? Math.max(0, this.props.to - this.props.from)
+			: '100%';
 		const top = this.props.from !== undefined ? this.props.from : 0;
-		const zIndex = this.props.onTop ? 1000 : 'auto';
+        const zIndex = this.props.onTop ? 1000 : undefined;
 		const size = this.props.size || 1;
 
 		return (
-			<div style={{
-				width: size,
-				backgroundColor: getBackgroundColor(this.state.highlighted, this.props.highlightColor),
-				position: 'absolute',
-				height: height,
-				top: top,
-				left: this.props.pos - size / 2,
-				zIndex: zIndex					
-				}}
-				onMouseEnter={() => this.highlightLine(true)}
-				onMouseLeave={() => this.highlightLine(false)}
-				onClick={this.onClick}>
+            <div className="vert-line" onMouseDown={this.onMouseDown}>
 				<div style={{
-					width: 1,
-					backgroundColor: this.props.color,
+					width: size,
+					backgroundColor: getBackgroundColor(this.state.highlighted, this.props.highlightColor),
 					position: 'absolute',
 					height: height,
-					top: 0,
-					left: Math.floor(size / 2)
-				}}/>
+					top: top,
+					left: this.props.pos - size / 2,
+					zIndex: zIndex ? zIndex + 1 : undefined
+					}}
+					onMouseEnter={() => this.highlightLine(true)}
+					onMouseLeave={() => this.highlightLine(false)}
+					onClick={this.onClick}>
+					<div style={{
+						width: 1,
+						backgroundColor: this.props.color,
+						position: 'absolute',
+						height: height,
+						top: 0,
+						left: Math.floor(size / 2)
+					}}/>
+				</div>
 				{this.props.label && <div style={{
 					position: 'absolute',
 					height: height,
-					left: size,
-					top: 0,
+					top: top,
+					left: this.props.pos - size / 2 + 5,
 					fontSize: 12,
 					display: 'flex',
 					alignItems: 'center',
@@ -176,7 +194,7 @@ export class Switch extends React.Component<{ round: boolean, onChange?: (boolea
 				this.props.onChange(true);
 			}
 		}
-	}
+    };
 
 	render() {
 		return this.props.round
