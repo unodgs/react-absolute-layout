@@ -29,6 +29,7 @@ interface AbsoluteLayoutProps extends React.Props<AbsoluteLayoutProps> {
     rowHeight?: number;
     showGrid?: boolean;
     snapToGrid?: boolean;
+    snapToMargins?: number;
     width?: number;
     height?: number;
     initialLayout?: string | number;
@@ -46,7 +47,6 @@ interface AbsoluteLayoutProps extends React.Props<AbsoluteLayoutProps> {
     adjustWidth?: number;
     adjustHeight?: number;
     aspectRatio?: number;
-    watchParentDepth?: number;
     elementIdx?: number;
     id?: string;
 }
@@ -116,17 +116,15 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
     public static defaultProps: AbsoluteLayoutProps = {
         colWidth: 50,
         rowHeight: 50,
-        width: 500,
-        height: 500,
         showGrid: true,
         snapToGrid: true,
+        snapToMargins: 5,
         editing: false,
         toolbar: true,
         name: "default",
         adjustWidth: 1,
         adjustHeight: 1,
-        aspectRatio: 1.0,
-        watchParentDepth: 1
+        aspectRatio: 1.0
     };
 
     constructor(props: AbsoluteLayoutProps) {
@@ -256,7 +254,7 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
         };
 
         if (layout) {
-            const { grid, snapPoints } = recalculateLayout(layout, calcWidth, calcHeight);
+            const { grid, snapPoints } = recalculateLayout(layout, calcWidth, calcHeight, this.props.snapToMargins);
             layout = grid;
             state['grid'] = grid;
             state['snapPoints'] = snapPoints;
@@ -270,6 +268,7 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
         }
         });
     };
+
     updateLayout = (layout: GridLayout, forceLayoutRecalculation = true) => {
         if (forceLayoutRecalculation) {
             this.suspendLayoutUpdate = true;
@@ -453,7 +452,7 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
                 x: x + w,
                 y: y + h
             },
-            snapPoints: getSnapPoints(this.state.grid, idx)
+            snapPoints: getSnapPoints(this.state.grid, idx, this.props.snapToMargins)
         }, () => this.onSelectElement(idx));
     };
 
@@ -548,7 +547,7 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
     };
 
     onMouseUp = (e: MouseEvent) => {
-        const snapPoints = getSnapPoints(this.state.grid, -1);
+        const snapPoints = getSnapPoints(this.state.grid, -1, this.props.snapToMargins);
         this.setState({
             mouseStartPos: null,
             mouseCurrPos: null,
@@ -607,7 +606,6 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
         }
     }
 
-
     startResizing = () => {
         this.onSelectElement(this.state.elementIdx);
         this.resizing = true;
@@ -615,13 +613,15 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
     };
 
     showGridBar = () => {
-        this.setState({
-            gridBar: true
-        });
+        if (this.props.editing) {
+            this.setState({
+                gridBar: true
+            });
+        }
     }
 
     hideGridBar = () => {
-        if (!this.state.editing) {
+        if (this.props.editing) {
             this.setState({
                 gridBar: false
             });
@@ -1049,11 +1049,12 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
         // console.log(this.props.className, this.props.id, w, calcWidth, this.state.totalWidth, h, calcHeight, this.state.totalHeight);
 
         return <div ref="grid" className={this.props.className} style={{
-                width: '100%',
-                height: '100%',
+                width: this.props.width ? this.props.width : '100%',
+                height: this.props.height ? this.props.height : '100%',
                 position: 'relative',
                 boxSizing: 'border-box',
-                overflow: 'auto'
+                overflow: 'auto',
+                border: this.props.editing ? '1px solid #eeeeee' : 'none'
             }} onMouseDown={this.clearSelectedElement}>
             <div className="inner-grid" ref='inner-grid' style={merge({
                 width: iw,
@@ -1213,7 +1214,7 @@ export function syncGridPins(grid: GridLayout, width: number, height: number) {
     grid.cells.forEach(g => this.syncCellPins(g, width, height));
 }
 
-function getSnapPoints(grid: GridLayout, selectedIdx: number): SnapPoints {
+function getSnapPoints(grid: GridLayout, selectedIdx: number, snapToMargins: number): SnapPoints {
     const xs = [];
     const ys = [];
     const mxs = [];
@@ -1223,7 +1224,15 @@ function getSnapPoints(grid: GridLayout, selectedIdx: number): SnapPoints {
         if (i !== selectedIdx) {
             const g = grid.cells[i];
             xs.push(g.x0, g.x1);
+            if (snapToMargins > 0) {
+                xs.push(g.x0 - 5, g.x1);
+                xs.push(g.x0, g.x1 + 5);
+            }
             ys.push(g.y0, g.y1);
+            if (snapToMargins > 0) {
+                ys.push(g.y0 - 5, g.y1);
+                ys.push(g.y0, g.y1 + 5);
+            }
             mxs.push((g.x0 + g.x1) / 2);
             mys.push((g.y0 + g.y1) / 2);
         }
@@ -1325,7 +1334,7 @@ export function recalculateLayoutCell(cell: GridCell, width: number, height: num
     return g;
 }
 
-export function recalculateLayout(grid: GridLayout, width: number, height: number): { grid: GridLayout, snapPoints: SnapPoints } {
+export function recalculateLayout(grid: GridLayout, width: number, height: number, snapToMargins: number): { grid: GridLayout, snapPoints: SnapPoints } {
     let nextGrid = grid;
 
     if (width > 0 && height > 0) {
@@ -1336,7 +1345,7 @@ export function recalculateLayout(grid: GridLayout, width: number, height: numbe
 
     return {
         grid: nextGrid,
-        snapPoints: getSnapPoints(nextGrid, -1)
+        snapPoints: getSnapPoints(nextGrid, -1, snapToMargins)
     };
 }
 
