@@ -45,7 +45,6 @@ module.exports = [{
     //     "react": "React",
     //     "react-dom": "ReactDOM"
     // },
-    stats,
     devServer: {
         stats
     }

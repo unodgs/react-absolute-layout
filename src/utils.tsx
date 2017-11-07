@@ -178,7 +178,7 @@ function getBackgroundColor(highlighted: boolean, color: string): string {
 	}
 }
 
-export class Switch extends React.Component<{ round: boolean, onChange?: (boolean) => void }, any> {
+export class Switch extends React.Component<{ round: boolean, onChange?: (boolean) => void, value: boolean }, any> {
 	toggleSwitch = () => {
 		const cl = (this.refs['switch'] as HTMLElement).classList;
 		if (cl.contains("on")) {
@@ -197,13 +197,14 @@ export class Switch extends React.Component<{ round: boolean, onChange?: (boolea
     };
 
 	render() {
+		const value = this.props.value ? " on" : " off";
 		return this.props.round
 			?
-			<div ref="switch" className="switch round off" onClick={this.toggleSwitch}>
+			<div ref="switch" className={"switch round" + value} onClick={this.toggleSwitch}>
 				<div className="toggle"></div>
 			</div>
 			:
-			<div ref="switch" className="switch off" onClick={this.toggleSwitch}>
+			<div ref="switch" className={"switch" + value} onClick={this.toggleSwitch}>
 				<div className="toggle"></div>
 				<span className="on">ON</span>
 				<span className="off">OFF</span>

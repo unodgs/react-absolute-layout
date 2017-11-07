@@ -24,7 +24,6 @@ const SIZE_EXTEND_CONTENT = 3;
 const SIZE_VIEWPORT = 4;
 
 interface AbsoluteLayoutProps extends React.Props<AbsoluteLayoutProps> {
-    children?: Array<React.ReactElement<any>>;
     colWidth?: number;
     rowHeight?: number;
     showGrid?: boolean;
@@ -141,8 +140,8 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
             layout = strToLayout(layout);
         }
         const grid = layout
-            ? this.syncLayoutChildren(layout, props.children)
-            : this.getInitialGrid(props.children, colWidth, rowHeight);
+            ? this.syncLayoutChildren(layout, props.children as React.ReactChild[])
+            : this.getInitialGrid(props.children as React.ReactChild[], colWidth, rowHeight);
 
         if (!layout) {
             this.saveLayout(grid);
@@ -408,7 +407,7 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
     componentWillReceiveProps(props: AbsoluteLayoutProps) {
         let grid = props.layout;
         if (!equalChildren(props.children as any, this.props.children as any)) {
-            grid = this.syncLayoutChildren(grid, props.children);
+            grid = this.syncLayoutChildren(grid, props.children as React.ReactChild[]);
         }
 
         if (!equalLayout(grid, this.state.grid)) {
@@ -724,9 +723,11 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
 
         if (this.state.editing) {
             elements = this.state.grid.cells.map((g: GridCell, idx: number) => {
+                const zIndex = idx === elementIdx ? 10000 : 'auto';
+
                 const posStyle: any = {
                     position: 'absolute',
-                    zIndex: idx === elementIdx ? 10000 : 'auto',
+                    zIndex: zIndex,
                     left: `${g.x0}px`,
                     top: `${g.y0}px`,
                     width: `${g.x1 - g.x0}px`,
@@ -737,38 +738,51 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
 
                 if (gel) {
                     const gelProps = gel.props as any;
-                    let style = merge(gelProps.style, {
-                    boxSizing: 'border-box',
-                    overflow: 'hidden',
-                    opacity: idx === elementIdx && (this.state.dragging || this.state.resizing) ? 0.8 : 1
-                });
+                    let style = merge(posStyle, {
+                        boxSizing: 'border-box',
+                        overflow: 'hidden',
+                        opacity: idx === elementIdx && (this.state.dragging || this.state.resizing) ? 0.8 : 1
+                    });
 
-                style = merge(style, posStyle);
-
-                const props = {
-                    key: `cell/${g.key}`,
-                    style: style,
+                    const props = {
+                        key: `cell/${g.key}`,
+                        style: style,
                         className: gelProps.className + ' al-grid-item',
-                    onMouseDown: (e: MouseEvent) => {
-                        e.stopPropagation();
-                        let t = e.currentTarget as HTMLElement;
-                        this.selectElement(idx, t.offsetLeft, t.offsetTop, t.offsetWidth, t.offsetHeight);						
-                        this.setState({
-                            dragging: !this.resizing,
-                            resizing: this.resizing
-                        });
+                        onMouseDown: (e: React.MouseEvent<any>) => {
+                            e.stopPropagation();
+                            let t = e.currentTarget as HTMLElement;
+                            this.selectElement(idx, t.offsetLeft, t.offsetTop, t.offsetWidth, t.offsetHeight);						
+                            this.setState({
+                                dragging: !this.resizing,
+                                resizing: this.resizing
+                            });
                             this.dragging = !this.resizing;
-                        this.resizing = false;
-                    }
+                            this.resizing = false;
+                        }
                     };
 
-                const el = React.cloneElement(gel, props,
-                        <div style={{width: '100%', height: '100%'}}>
+                    const elPosStyle = {
+                        position: 'absolute',
+                        boxSizing: 'border-box',
+                        left: 0,
+                        top: 0,
+                        width: `${g.x1 - g.x0}px`,
+                        height: `${g.y1 - g.y0}px`
+                    };
+                    
+                    const el = React.cloneElement(gel, merge(gelProps, {
+                        key: `cell-content/${g.key}`,
+                        style: merge(gelProps.style, elPosStyle)
+                    }), null);
+                        
+                    const grabRect = 
+                    <div style={...posStyle} {...props}>
                         {elementIdx == idx &&
                         <div style={{
                             position: 'absolute',
                             left: 5, top: 5, padding: 2,
                             fontSize: 12,
+                            zIndex: zIndex,
                             backgroundColor: 'rgba(0, 0, 0, 0.3)',
                             color: 'white'}}>
                             {Math.round(g.x1 - g.x0)}, {Math.round(g.y1 - g.y0)}
@@ -780,6 +794,7 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
                             top: 'calc(50% - 10px)',
                             width: 3,
                             height: 20,
+                            zIndex: zIndex,
                             backgroundColor: 'rgba(0, 0, 0, 0.2)'
                         }}/>}
                         {g.xp1 !== PIN_NONE &&
@@ -789,6 +804,7 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
                             top: 'calc(50% - 10px)',
                             width: 3,
                             height: 20,
+                            zIndex: zIndex,
                             backgroundColor: 'rgba(0, 0, 0, 0.2)'
                         }}/>}
                         {g.yp0 !== PIN_NONE &&
@@ -798,6 +814,7 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
                             left: 'calc(50% - 10px)',
                             width: 20,
                             height: 3,
+                            zIndex: zIndex,
                             backgroundColor: 'rgba(0, 0, 0, 0.2)'
                         }}/>}
                         {g.yp1 !== PIN_NONE &&
@@ -807,37 +824,41 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
                             left: 'calc(50% - 10px)',
                             width: 20,
                             height: 3,
+                            zIndex: zIndex,
                             backgroundColor: 'rgba(0, 0, 0, 0.2)'
                         }}/>}
-                            <div onMouseDown={this.startResizing.bind(this)} style={{
+                        <div onMouseDown={this.startResizing.bind(this)} style={{
                             position: 'absolute',
                             bottom: 0,
                             right: 0,
                             width: 20,
                             height: 20,
+                            zIndex: zIndex,
                             cursor: 'nwse-resize'
                         }}>
-                            <div style={{
-                                position: 'absolute',
-                                bottom: 0,
-                                right: 0,
-                                width: 8,
-                                height: 3,
-                                backgroundColor: 'rgba(0, 0, 0, 0.2)'
-                            }}/>
-                            <div style={{
-                                position: 'absolute',
-                                right: 0,
-                                width: 3,
-                                height: 5,
-                                bottom: 3,
-                                backgroundColor: 'rgba(0, 0, 0, 0.2)'
-                            }}/>
+                        <div style={{
+                            position: 'absolute',
+                            bottom: 0,
+                            right: 0,
+                            width: 8,
+                            height: 3,
+                            zIndex: zIndex,
+                            backgroundColor: 'rgba(0, 0, 0, 0.2)'
+                        }}/>
+                        <div style={{
+                            position: 'absolute',
+                            right: 0,
+                            width: 3,
+                            height: 5,
+                            bottom: 3,
+                            zIndex: zIndex,
+                            backgroundColor: 'rgba(0, 0, 0, 0.2)'
+                        }}/>
                         </div>
-                            {gel.props.children}
+                        {el}
                     </div>
-                );
-                return el;
+                    ;
+                    return grabRect;
                 } else {
                     return null;
                 }
@@ -865,7 +886,6 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
                 } else {
                     return null;
                 }
-
             });
         }
 
@@ -973,7 +993,7 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
                         top: 5,
                         left: 3
                         }}>
-                        <Switch round={true} onChange={this.toggleEditing}/>
+                        <Switch round={true} onChange={this.toggleEditing} value={this.state.editing}/>
                     </div>
                     <div style={{
                         position: 'absolute',

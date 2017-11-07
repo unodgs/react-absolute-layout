@@ -1,39 +1,39 @@
 {
-  "name": "react-layout",
-  "version": "1.0.0",
-  "description": "Layout system for React",
-  "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "tsc --project ./tsconfig.json",
-    "build:watch": "tsc --project ./tsconfig.json --watch",
-    "build:webpack": "webpack-dev-server -w"
-  },
-  "author": "",
-  "license": "ISC",
-  "devDependencies": {
-    "awesome-typescript-loader": "3.2.1",
-    "css-loader": "0.28.4",
-    "express": "4.15.3",
-    "extract-text-webpack-plugin": "2.1.2",
-    "requirejs": "2.3.3",
-    "source-map-loader": "0.2.1",
-    "systemjs": "0.20.14",
-    "typescript": "2.4.1",
-    "webpack": "3.0.0",
-    "webpack-dev-server": "2.5.0",
-    "webpack-html-plugin": "0.1.1"
-  },
-  "dependencies": {
-    "@types/clipboard": "1.5.34",
-    "@types/lz-string": "1.3.32",
-    "@types/object-assign": "4.0.30",
-    "@types/react": "15.0.34",
-    "@types/react-dom": "15.5.1",
-    "clipboard": "1.7.1",
-    "lz-string": "1.4.4",
-    "object-assign": "4.1.1",
-    "react": "15.6.1",
-    "react-dom": "15.6.1"
-  }
+    "name": "react-layout",
+    "version": "1.0.0",
+    "description": "Layout system for React",
+    "main": "index.js",
+    "scripts": {
+        "test": "echo \"Error: no test specified\" && exit 1",
+        "build": "tsc --project ./tsconfig.json",
+        "build:watch": "tsc --project ./tsconfig.json --watch",
+        "build:webpack": "webpack-dev-server -w"
+    },
+    "author": "",
+    "license": "ISC",
+    "devDependencies": {
+        "awesome-typescript-loader": "3.3.0",
+        "css-loader": "0.28.7",
+        "express": "4.16.2",
+        "extract-text-webpack-plugin": "3.0.2",
+        "requirejs": "2.3.5",
+        "source-map-loader": "0.2.3",
+        "systemjs": "0.20.19",
+        "typescript": "2.6.1",
+        "webpack": "3.8.1",
+        "webpack-dev-server": "2.9.4",
+        "webpack-html-plugin": "0.1.1"
+    },
+    "dependencies": {
+        "@types/clipboard": "1.5.35",
+        "@types/lz-string": "1.3.32",
+        "@types/object-assign": "4.0.30",
+        "@types/react": "16.0.18",
+        "@types/react-dom": "16.0.2",
+        "clipboard": "1.7.1",
+        "lz-string": "1.4.4",
+        "object-assign": "4.1.1",
+        "react": "16.0.0",
+        "react-dom": "16.0.0"
+    }
 }
