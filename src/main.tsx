@@ -11,7 +11,9 @@ class App extends React.Component<{}, {}> {
 				<div style={{backgroundColor: 'red'}} key="red-box"/>
 				<div style={{backgroundColor: 'green'}}/>
 				<div style={{backgroundColor: 'yellow'}}/>
-				<div style={{backgroundColor: 'blue'}}/>
+				<div style={{backgroundColor: 'blue'}}>
+					<input type="text"/>
+				</div>
 			</AbsoluteLayout>
 		</div>
 	}

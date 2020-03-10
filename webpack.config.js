@@ -1,4 +1,4 @@
-const HtmlPlugin = require('webpack-html-plugin')
+const HtmlPlugin = require('html-webpack-plugin')
 const join = require('path').join
 const ExtractTextPlugin = require("extract-text-webpack-plugin");
 
