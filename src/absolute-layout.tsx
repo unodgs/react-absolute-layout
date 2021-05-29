@@ -11,7 +11,7 @@ type Point = {
 const DEFAULT_WIDTH = 500;
 const DEFAULT_HEIGHT = 300;
 
-interface AbsoluteLayoutProps extends React.Props<AbsoluteLayoutProps> {
+interface AbsoluteLayoutProps {
     colWidth?: number;
     rowHeight?: number;
     showGrid?: boolean;
@@ -40,7 +40,8 @@ interface AbsoluteLayoutProps extends React.Props<AbsoluteLayoutProps> {
     newElementSize?: {
         width: number;
         height: number;
-    }
+    },
+    children?: React.ReactNode
 }
 
 interface SnapPoints {
@@ -133,7 +134,7 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
         const rowHeight = Math.max(props.rowHeight ?? 0, 5);
         const layout = this.props.layout || this.props.initialLayout || [];
 
-        const grid = this.syncLayoutChildren(layout, props.children as React.ReactChild[])
+        const grid = this.syncLayoutChildren(layout, props.children);
 
         if (!layout) {
             this.updateLayout(grid);
@@ -166,34 +167,30 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
         }
     }
 
-    syncLayoutChildren = (grid: GridLayout, children: React.ReactChild[]): GridLayout => {
+    syncLayoutChildren = (grid: GridLayout, children: React.ReactNode): GridLayout => {
         const newGrid: GridLayout = []
-
-        for (let i = 0; i < children.length; i++) {
-            const child = children[i] as React.ReactElement;
-            if (child) {
-                const key = (child.key ? child.key : i).toString();
-                const g = grid.find(g => g.key === key);
-                const ng = getInitialGridCell(0, 0, 100, 100);
-                if (g) {
-                    ng.x0 = g.x0;
-                    ng.xp0 = g.xp0;
-                    ng.xl0 = g.xl0;
-                    ng.y0 = g.y0;
-                    ng.yp0 = g.yp0;
-                    ng.yl0 = g.yl0;
-                    ng.x1 = g.x1;
-                    ng.xp1 = g.xp1;
-                    ng.xl1 = g.xl1;
-                    ng.y1 = g.y1;
-                    ng.yp1 = g.yp1;
-                    ng.yl1 = g.yl1;
-                }
-                ng.key = key;
-                ng.idx = i;
-                newGrid.push(ng);
+        React.Children.forEach(children, (child: any, i) => {
+            const key = (child && child.key ? child.key : i).toString();
+            const g = grid.find(g => g.key === key);
+            const ng = getInitialGridCell(0, 0, 100, 100);
+            if (g) {
+                ng.x0 = g.x0;
+                ng.xp0 = g.xp0;
+                ng.xl0 = g.xl0;
+                ng.y0 = g.y0;
+                ng.yp0 = g.yp0;
+                ng.yl0 = g.yl0;
+                ng.x1 = g.x1;
+                ng.xp1 = g.xp1;
+                ng.xl1 = g.xl1;
+                ng.y1 = g.y1;
+                ng.yp1 = g.yp1;
+                ng.yl1 = g.yl1;
             }
-        }
+            ng.key = key;
+            ng.idx = i;
+            newGrid.push(ng);
+        });
         return newGrid;
     };
 
@@ -208,7 +205,7 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
 
     componentDidMount() {
         document.addEventListener('mousedown', this.onMouseDown);
-        document.addEventListener('mousemove', this.onMouseMove);
+        document.addEventListener('mousemove', this.onMouseMove, { capture: true });
         document.addEventListener('mouseup', this.onMouseUp);
     }
 
@@ -310,7 +307,6 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
             this.state.mouseCurrPos?.y === clientY) {
             return;
         }
-        
         const dx = this.state.mouseStartPos ? clientX - this.state.mouseStartPos.x : 0;
         const dy = this.state.mouseStartPos ? clientY - this.state.mouseStartPos.y : 0;
 
@@ -631,12 +627,12 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
 
         let elements = null;
 
-        const children = this.props.children as React.ReactElement[];
+        const children = React.Children.toArray(this.props.children);
 
         if (this.state.editing) {
             elements = this.state.grid.map((g: GridCell, idx: number) => {
                 const zIndex = idx === elementIdx ? 10000 : 'auto';
-
+                
                 const posStyle: React.CSSProperties = {
                     position: 'absolute',
                     zIndex: zIndex,
@@ -646,7 +642,7 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
                     height: `${g.y1 - g.y0}px`
                 };
 
-                const gel = children && children[g.idx]
+                const gel: React.ReactElement = children && children[g.idx]
                     ? children[g.idx] as React.ReactElement
                     : React.createElement("div", { style: { backgroundColor: 'lightcoral'} });
 
@@ -671,6 +667,8 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
                             this.setState({
                                 elementIdx: idx,
                                 moving: true
+                            }, () => {
+                                this.mouseDown(e.clientX, e.clientY);
                             });
                         }
                     };
@@ -792,7 +790,7 @@ export class AbsoluteLayout extends React.Component<AbsoluteLayoutProps, Absolut
                     overflow: 'hidden'
                 };
 
-                const gel = children ? children[g.idx] : null;
+                const gel = children ? children[g.idx] as React.ReactElement : null;
                 if (gel) {
                     const gelProps = gel.props as any;
                     const props = {
