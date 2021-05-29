@@ -1,0 +1,4 @@
+.inner-grid-moving * {
+  pointer-events: none;
+  user-select: none;
+}

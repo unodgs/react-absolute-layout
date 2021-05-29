@@ -1,18 +1,26 @@
 {
     "compilerOptions": {
-        "jsx": "react",
-        "module": "commonjs",
-        "declaration": false,
-        "target": "es5",
-        "experimentalDecorators": true,
-        "noImplicitReturns": true,
-        "allowSyntheticDefaultImports": true,
-        "outDir": "./build",
+        "target": "es6",
+        "allowJs": true,
         "sourceMap": true,
-        "allowJs": false,
-        "pretty": true,
+        "inlineSources": true,
+        "skipLibCheck": true,
+        "importHelpers": true,
+        "esModuleInterop": true,
+        "allowSyntheticDefaultImports": true,
+        "strict": true,
+        "forceConsistentCasingInFileNames": true,
+        "importsNotUsedAsValues": "preserve",
+        "module": "commonjs",
+        "resolveJsonModule": true,
+        "noImplicitAny": true,
+        "baseUrl": "./",
+        "outDir": "./dist",
+        "jsx": "react",
         "lib": [
-            "dom", "es6"
+            "es2015",
+            "es2017",
+            "dom"
         ]
     },
     "include": [

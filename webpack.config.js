@@ -1,6 +1,5 @@
 const HtmlPlugin = require('html-webpack-plugin')
 const join = require('path').join
-const ExtractTextPlugin = require("extract-text-webpack-plugin");
 
 const stats = {
     chunks: false,
@@ -18,8 +17,7 @@ module.exports = [{
     plugins: [
         new HtmlPlugin({
             template: './index.html',
-        }),
-        new ExtractTextPlugin("styles.css")
+        })
     ],
     resolve: {
         extensions: [".ts", ".tsx", ".js", ".json"]
@@ -27,10 +25,7 @@ module.exports = [{
     module: {
         rules: [{
             test: /\.css$/,
-            use: ExtractTextPlugin.extract({
-                fallback: "style-loader",
-                use: "css-loader"
-            })
+            use: ["style-loader", "css-loader"]
         }, {
             test: /\.ts(x?)$/,
             loader: 'awesome-typescript-loader',
@@ -46,6 +41,7 @@ module.exports = [{
     //     "react-dom": "ReactDOM"
     // },
     devServer: {
-        stats
+        stats,
+        port: 8077
     }
 }]

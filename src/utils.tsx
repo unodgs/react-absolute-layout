@@ -1,214 +1,191 @@
-import * as React from "react";
+import React, { useRef, useState } from "react";
 
 interface LineProps {
-	pos: number;
-	from?: number;
-	to?: number;
-	highlightColor?: string;
-	color?: string;
-	dashed?: boolean;
-	label?: string;
-	onTop?: boolean;
-	size?: number;
-	onClick?: () => void;
+    pos: number;
+    from?: number;
+    to?: number;
+    highlightColor?: string;
+    color?: string;
+    dashed?: boolean;
+    label?: string;
+    onTop?: boolean;
+    size?: number;
+    disabled?: boolean;
+    onClick?: () => void;
 }
 
-interface LineState {
-	highlighted: boolean;
-}
+export const HorzLine = ({ color = "black", ...props }: LineProps) => {
 
-export class HorzLine extends React.Component<LineProps, LineState> {
-	static defaultProps = {
-		color: 'black'
-    };
+    const [highlighted, setHighlighted] = useState(false);
 
-	constructor(props: LineProps) {
-		super(props);
-		this.state = {
-			highlighted: false
-		};
-	}
-	
-	highlightLine(b: boolean) {
-		this.setState({
-			highlighted: b
-		});
-	}
-
-    onClick = (e) => {
+    const onClick = (e: React.MouseEvent<HTMLDivElement>) => {
         e.stopPropagation();
-		if (this.props.onClick) {
-			this.props.onClick();
-		}
+        if (props.onClick) {
+            props.onClick();
+        }
     };
 
-    onMouseDown = (e) => {
+    const onMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
         e.stopPropagation();
     };
 
-	render() {
-        const width = (this.props.from !== undefined && this.props.to !== undefined)
-			? Math.max(0, this.props.to - this.props.from)
-			: '100%';
-		const left = this.props.from !== undefined ? this.props.from : 0;
-        const zIndex = this.props.onTop ? 1000 : undefined;
-		const size = this.props.size || 1;
+    const width = (props.from !== undefined && props.to !== undefined)
+        ? Math.max(0, props.to - props.from)
+        : 0;
+    const left = props.from !== undefined ? props.from : 0;
+    const zIndex = props.onTop ? 1000 : undefined;
+    const size = props.size || 1;
 
-		return (
-            <div className="horz-line" onMouseDown={this.onMouseDown}>
-				<div style={{
-					width: width,
-					backgroundColor: getBackgroundColor(this.state.highlighted, this.props.highlightColor),
-					height: size,
-					position: 'absolute',
-					top: this.props.pos - size / 2,
-					left: left,
-					zIndex: zIndex ? zIndex + 1 : undefined
-					}}
-					onMouseEnter={() => this.highlightLine(true)}
-					onMouseLeave={() => this.highlightLine(false)}
-					onClick={this.onClick}>
-					<div style={{
-						height: 1,
-						backgroundColor: this.props.color,
-						position: 'absolute',
-						width: width,
-						left: 0,
-						top: Math.floor(size / 2),
-					}}/>
-				</div>
-				{this.props.label && <div style={{
-					position: 'absolute',
-					width: width,
-					left: left,
-					top: this.props.pos - size / 2 - 15,
-					zIndex: zIndex,
-					fontSize: 12,
-					display: 'flex',
-					alignItems: 'center',
-					justifyContent: 'center'
-				}}>{this.props.label}</div>}
-			</div>
-		)
-	}
+    return (
+        <div className="horz-line"
+            style={{ pointerEvents: props.disabled ? 'none' : 'auto' }}
+            onMouseDown={onMouseDown}>
+            <div style={{
+                width: width,
+                backgroundColor: getBackgroundColor(highlighted, props.highlightColor),
+                height: size,
+                position: 'absolute',
+                top: props.pos - size / 2,
+                left: left,
+                zIndex: zIndex ? zIndex + 1 : undefined
+            }}
+                onMouseEnter={() => setHighlighted(true)}
+                onMouseLeave={() => setHighlighted(false)}
+                onClick={onClick}>
+                <div style={{
+                    height: 1,
+                    backgroundColor: color,
+                    position: 'absolute',
+                    width: width,
+                    left: 0,
+                    top: Math.floor(size / 2),
+                }}/>
+            </div>
+            {props.label && <div style={{
+                position: 'absolute',
+                width: width,
+                left: left,
+                top: props.pos - size / 2 - 15,
+                zIndex: zIndex,
+                fontSize: 12,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+            }}>{props.label}</div>}
+        </div>
+    )
 }
 
-export class VertLine extends React.Component<LineProps, LineState> {
-	static defaultProps = {
-		color: 'black'
-    };
+export const VertLine = ({ color = "black", ...props }: LineProps) => {
 
-	constructor(props: LineProps) {
-		super(props);
-		this.state = {
-			highlighted: false
-		};
-	}
-	
-	highlightLine(b: boolean) {
-		this.setState({
-			highlighted: b
-		});
-	}
+    const [highlighted, setHighlighted] = useState(false);
 
-    onClick = (e) => {
+    const onClick = (e: React.MouseEvent<HTMLDivElement>) => {
         e.stopPropagation();
-		if (this.props.onClick) {
-			this.props.onClick();
-		}
+        if (props.onClick) {
+            props.onClick();
+        }
     };
 
-    onMouseDown = (e) => {
+    const onMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
         e.stopPropagation();
     };
-	
-	render() {
-        const height = (this.props.from !== undefined && this.props.to !== undefined)
-			? Math.max(0, this.props.to - this.props.from)
-			: '100%';
-		const top = this.props.from !== undefined ? this.props.from : 0;
-        const zIndex = this.props.onTop ? 1000 : undefined;
-		const size = this.props.size || 1;
 
-		return (
-            <div className="vert-line" onMouseDown={this.onMouseDown}>
-				<div style={{
-					width: size,
-					backgroundColor: getBackgroundColor(this.state.highlighted, this.props.highlightColor),
-					position: 'absolute',
-					height: height,
-					top: top,
-					left: this.props.pos - size / 2,
-					zIndex: zIndex ? zIndex + 1 : undefined
-					}}
-					onMouseEnter={() => this.highlightLine(true)}
-					onMouseLeave={() => this.highlightLine(false)}
-					onClick={this.onClick}>
-					<div style={{
-						width: 1,
-						backgroundColor: this.props.color,
-						position: 'absolute',
-						height: height,
-						top: 0,
-						left: Math.floor(size / 2)
-					}}/>
-				</div>
-				{this.props.label && <div style={{
-					position: 'absolute',
-					height: height,
-					top: top,
-					left: this.props.pos - size / 2 + 5,
-					fontSize: 12,
-					display: 'flex',
-					alignItems: 'center',
-					justifyContent: 'center'
-				}}>{this.props.label}</div>}
-			</div>
-		)
-	}
+    const height = (props.from !== undefined && props.to !== undefined)
+        ? Math.max(0, props.to - props.from)
+        : '100%';
+    const top = props.from !== undefined ? props.from : 0;
+    const zIndex = props.onTop ? 1000 : undefined;
+    const size = props.size || 1;
+
+    return (
+        <div className="vert-line"
+            style={{ pointerEvents: props.disabled ? 'none' : 'auto' }}
+            onMouseDown={onMouseDown}>
+            <div style={{
+                width: size,
+                backgroundColor: getBackgroundColor(highlighted, props.highlightColor),
+                position: 'absolute',
+                height: height,
+                top: top,
+                left: props.pos - size / 2,
+                zIndex: zIndex ? zIndex + 1 : undefined
+            }}
+                onMouseEnter={() => setHighlighted(true)}
+                onMouseLeave={() => setHighlighted(false)}
+                onClick={onClick}>
+                <div style={{
+                    width: 1,
+                    backgroundColor: color,
+                    position: 'absolute',
+                    height: height,
+                    top: 0,
+                    left: Math.floor(size / 2)
+                }}/>
+            </div>
+            {props.label && <div style={{
+                position: 'absolute',
+                height: height,
+                top: top,
+                left: props.pos - size / 2 + 5,
+                fontSize: 12,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+            }}>{props.label}</div>}
+        </div>
+    )
 }
 
-function getBackgroundColor(highlighted: boolean, color: string): string {
-	if (color) {
-		return color;
-	} else if (highlighted) {
-		return 'rgba(0, 0, 0, 0.1)';
-	} else { 
-		return 'rgba(0, 0, 0, 0)';
-	}
+function getBackgroundColor(highlighted: boolean, color?: string): string {
+    if (color) {
+        return color;
+    } else if (highlighted) {
+        return 'rgba(0, 0, 0, 0.1)';
+    } else {
+        return 'rgba(0, 0, 0, 0)';
+    }
 }
 
-export class Switch extends React.Component<{ round: boolean, onChange?: (boolean) => void, value: boolean }, any> {
-	toggleSwitch = () => {
-		const cl = (this.refs['switch'] as HTMLElement).classList;
-		if (cl.contains("on")) {
-			cl.remove("on");
-			cl.add("off");
-			if (this.props.onChange) {
-				this.props.onChange(false);
-			}
-		} else {
-			cl.remove("off");
-			cl.add("on");
-			if (this.props.onChange) {
-				this.props.onChange(true);
-			}
-		}
+interface SwitchProps {
+    round: boolean;
+    onChange?: (value: boolean) => void;
+    checked: boolean;
+}
+
+export const Switch = ({ round, onChange, checked }: SwitchProps) => {
+    const switchRef = useRef<HTMLDivElement>(null);
+
+    const toggleSwitch = () => {
+        if (switchRef.current) {
+            const cl = switchRef.current.classList;
+            if (cl.contains("on")) {
+                cl.remove("on");
+                cl.add("off");
+                if (onChange) {
+                    onChange(false);
+                }
+            } else {
+                cl.remove("off");
+                cl.add("on");
+                if (onChange) {
+                    onChange(true);
+                }
+            }
+        }
     };
 
-	render() {
-		const value = this.props.value ? " on" : " off";
-		return this.props.round
-			?
-			<div ref="switch" className={"switch round" + value} onClick={this.toggleSwitch}>
-				<div className="toggle"></div>
-			</div>
-			:
-			<div ref="switch" className={"switch" + value} onClick={this.toggleSwitch}>
-				<div className="toggle"></div>
-				<span className="on">ON</span>
-				<span className="off">OFF</span>
-			</div>
-			;
-	}
+    const value = checked ? " on" : " off";
+    return round
+        ?
+        <div ref={switchRef} className={"switch round" + value} onClick={toggleSwitch}>
+            <div className="toggle"/>
+        </div>
+        :
+        <div ref={switchRef} className={"switch" + value} onClick={toggleSwitch}>
+            <div className="toggle"/>
+            <span className="on">ON</span>
+            <span className="off">OFF</span>
+        </div>
+        ;
 }

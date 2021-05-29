@@ -8,3 +8,5 @@ nbproject
 build
 dist
 /nbproject/private/
+.vscode
+yarn.lock
